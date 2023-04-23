@@ -104,3 +104,20 @@
 #define SOL_LEFT_SLING              16
 #define SOL_RIGHT_SLING             17
 #define SOL_POP_BUMPER              18
+
+
+#if (RPU_MPU_ARCHITECTURE<10)
+// Machines with a -17, -35, 100, and 200 architecture
+// almost always have software based switch-triggered solenoids. 
+// For those, you can define an array of solenoids and the switches
+// that will trigger them:
+
+#define NUM_SWITCHES_WITH_TRIGGERS          3 // total number of solenoid/switch pairs
+#define NUM_PRIORITY_SWITCHES_WITH_TRIGGERS 3 // This number should match the define above
+
+struct PlayfieldAndCabinetSwitch SolenoidAssociatedSwitches[] = {
+  { SW_RIGHT_SLING, SOL_RIGHT_SLING, 4},
+  { SW_LEFT_SLING, SOL_LEFT_SLING, 4},
+  { SW_POP_BUMPER, SOL_POP_BUMPER, 4}
+};
+#endif

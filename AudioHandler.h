@@ -94,7 +94,7 @@ struct SoundEffectEntry {
 #define EOM   0x55
 
 
-#if defined(USE_WAV_TRIGGER) || defined(USE_WAV_TRIGGER_1p3)
+#if defined(RPU_OS_USE_WAV_TRIGGER) || defined(RPU_OS_USE_WAV_TRIGGER_1p3)
 
 #define WTSerial Serial1
 
@@ -217,7 +217,7 @@ class AudioHandler
     SoundCardCommandEntry soundCardQueue[SOUND_CARD_QUEUE_SIZE];
 #endif
 
-#if defined(USE_WAV_TRIGGER) || defined(USE_WAV_TRIGGER_1p3)
+#if defined(RPU_OS_USE_WAV_TRIGGER) || defined(RPU_OS_USE_WAV_TRIGGER_1p3)
     wavTrigger wTrig;             // Our WAV Trigger object 
 #endif
 

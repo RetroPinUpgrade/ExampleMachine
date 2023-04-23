@@ -317,7 +317,7 @@ void setup() {
 
   // Tell the OS about game-specific switches
   // (this is for software-controlled pop bumpers and slings)
-  //RPU_SetupGameSwitches(NUM_SWITCHES_WITH_TRIGGERS, NUM_PRIORITY_SWITCHES_WITH_TRIGGERS, SolenoidAssociatedSwitches);
+  RPU_SetupGameSwitches(NUM_SWITCHES_WITH_TRIGGERS, NUM_PRIORITY_SWITCHES_WITH_TRIGGERS, SolenoidAssociatedSwitches);
 
   // Set up the chips and interrupts
   unsigned long initResult = 0;
