@@ -317,7 +317,13 @@ void setup() {
 
   // Tell the OS about game-specific switches
   // (this is for software-controlled pop bumpers and slings)
+#if (RPU_MPU_ARCHITECTURE<10)
+  // Machines with a -17, -35, 100, and 200 architecture
+  // almost always have software based switch-triggered solenoids. 
+  // For those, you can define an array of solenoids and the switches
+  // that will trigger them:  
   RPU_SetupGameSwitches(NUM_SWITCHES_WITH_TRIGGERS, NUM_PRIORITY_SWITCHES_WITH_TRIGGERS, SolenoidAssociatedSwitches);
+#endif
 
   // Set up the chips and interrupts
   unsigned long initResult = 0;
