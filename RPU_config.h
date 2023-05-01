@@ -37,7 +37,8 @@
 
 // Available Architectures (0-9 is for B/S Boards, 10-19 is for W)
 //  RPU_MPU_ARCHITECTURE 1 = -17, -35, 100, 200, or compatible
-//  RPU_MPU_ARCHITECTURE 11 = Sys 4, 6
+//  RPU_MPU_ARCHITECTURE 11 = Sys 4
+//  RPU_MPU_ARCHITECTURE 12 = Sys 6
 //  RPU_MPU_ARCHITECTURE 13 = Sys 7
 //  RPU_MPU_ARCHITECTURE 15 = Sys 11
 #define RPU_MPU_ARCHITECTURE  1
