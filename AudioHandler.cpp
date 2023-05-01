@@ -531,7 +531,7 @@ boolean AudioHandler::InitDevices(byte audioType) {
     PlaySB300StartupBeep();
 #endif
 
-#if defined(RPU_WTYPE_1_SOUND) || defined(RPU_WTYPE_2_SOUND)
+#if defined(RPU_OS_USE_WTYPE_1_SOUND) || defined(RPU_OS_USE_WTYPE_2_SOUND)
 #endif
   }
 
@@ -552,11 +552,11 @@ void AudioHandler::SetSoundFXVolume(byte s_volume) {
 }
 
 void AudioHandler::SetNotificationsVolume(byte s_volume) {
-  notificationsGain = ConvertVolumeSettingToGain(s_volume);;
+  notificationsGain = ConvertVolumeSettingToGain(s_volume);
 }
 
 void AudioHandler::SetMusicVolume(byte s_volume) {
-  musicGain = ConvertVolumeSettingToGain(s_volume);;
+  musicGain = ConvertVolumeSettingToGain(s_volume);
 }
 
 void AudioHandler::SetMusicDuckingGain(byte s_ducking) {
@@ -969,7 +969,7 @@ void AudioHandler::InitSoundEffectQueue() {
 
 boolean AudioHandler::PlaySoundCardWhenPossible(unsigned short soundEffectNum, unsigned long currentTime, unsigned long requestedPlayTime, unsigned long playUntil, byte priority) {
 
-#if defined(RPU_WTYPE_1_SOUND) || defined(RPU_WTYPE_2_SOUND)
+#if defined(RPU_OS_USE_WTYPE_1_SOUND) || defined(RPU_OS_USE_WTYPE_2_SOUND)
   byte count = 0;
   for (count = 0; count < SOUND_EFFECT_QUEUE_SIZE; count++) {
     if (SoundEffectQueue[count].inUse == false) break;
@@ -1024,7 +1024,7 @@ boolean AudioHandler::ServiceSoundCardQueue(unsigned long currentTime) {
   }
 
   return soundCommandSent;
-#elif defined(RPU_WTYPE_1_SOUND) || defined(RPU_WTYPE_2_SOUND) 
+#elif defined(RPU_OS_USE_WTYPE_1_SOUND) || defined(RPU_OS_USE_WTYPE_2_SOUND) 
   byte highestPrioritySound = 0xFF;
   byte queuePriority = 0;
 
@@ -1065,7 +1065,7 @@ boolean AudioHandler::ServiceSoundCardQueue(unsigned long currentTime) {
       CurrentSoundPlaying.priority = SoundEffectQueue[highestPrioritySound].priority;
       CurrentSoundPlaying.inUse = true;
       SoundEffectQueue[highestPrioritySound].inUse = false;
-      WOS_PushToSoundStack(CurrentSoundPlaying.soundEffectNum, 8);
+      RPU_PushToSoundStack(CurrentSoundPlaying.soundEffectNum, 8);
       soundCommandSent = true;
     }
   }

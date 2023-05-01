@@ -114,11 +114,7 @@ byte DropTargetBank::HandleDropTargetHit(byte switchNum) {
   }
 
   if (allTargetsSwitch!=0xFF) {
-#ifdef BSOS_CONFIG_H    
-    if (BSOS_ReadSingleSwitchState(allTargetsSwitch) || switchNum==allTargetsSwitch) targetBits = bankBitmask & (~bankStatus);
-#elif defined WOS_CONFIG_H
-    if (WOS_ReadSingleSwitchState(allTargetsSwitch) || switchNum==allTargetsSwitch) targetBits = bankBitmask & (~bankStatus);
-#endif
+    if (RPU_ReadSingleSwitchState(allTargetsSwitch) || switchNum==allTargetsSwitch) targetBits = bankBitmask & (~bankStatus);
   }
 
   bankStatus |= targetBits;
@@ -139,11 +135,7 @@ byte DropTargetBank::GetStatus() {
   byte bitMask = 0x01;
   byte returnStatus = 0x00;
   for (byte count=0; count<numSwitches; count++) {
-#ifdef BSOS_CONFIG_H    
-    if (BSOS_ReadSingleSwitchState(switchArray[count])) returnStatus |= bitMask;
-#elif defined WOS_CONFIG_H
-    if (WOS_ReadSingleSwitchState(switchArray[count])) returnStatus |= bitMask;
-#endif
+    if (RPU_ReadSingleSwitchState(switchArray[count])) returnStatus |= bitMask;
     bitMask *= 2;
   }
   return returnStatus;
@@ -157,11 +149,7 @@ void DropTargetBank::ResetDropTargets(unsigned long timeToReset, boolean ignoreQ
 
   if (numSolenoids) {
     for (byte count=0; count<numSolenoids; count++) {
-#ifdef BSOS_CONFIG_H
-      if (solArray[count]!=0xFF) BSOS_PushToTimedSolenoidStack(solArray[count], solenoidOnTime, timeToReset);
-#elif defined WOS_CONFIG_H
-      if (solArray[count]!=0xFF) WOS_PushToTimedSolenoidStack(solArray[count], solenoidOnTime, timeToReset);
-#endif      
+      if (solArray[count]!=0xFF) RPU_PushToTimedSolenoidStack(solArray[count], solenoidOnTime, timeToReset);
 //      char buf[256];
 //      sprintf(buf, "Resetting sol %d for %d cycles at %lu\n", solArray[count], solenoidOnTime, timeToReset);
 //      Serial.write(buf);      
