@@ -33,7 +33,7 @@
 // Hardware Rev 100 (different order of magnitude because it's a different approach) plugs into the CPU socket
 // Hardware Rev 101 - first RPU CPU interposer release board
 // Hardware Rev 102 - second RPU (with display and WIFI socket)
-#define RPU_OS_HARDWARE_REV   102
+#define RPU_OS_HARDWARE_REV   3
 
 // Available Architectures (0-9 is for B/S Boards, 10-19 is for W)
 //  RPU_MPU_ARCHITECTURE 1 = -17, -35, 100, 200, or compatible
@@ -60,6 +60,7 @@
 //#define RPU_OS_USE_WAV_TRIGGER
 //#define RPU_OS_USE_WAV_TRIGGER_1p3
 //#define RPU_OS_USE_AUX_LAMPS
+//#define RPU_OS_DISABLE_CPC_FOR_SPACE
 //#define RPU_OS_USE_7_DIGIT_DISPLAYS
 //#define RPU_USE_EXTENDED_SWITCHES_ON_PB4
 //#define RPU_USE_EXTENDED_SWITCHES_ON_PB7
