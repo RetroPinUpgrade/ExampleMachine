@@ -19,7 +19,7 @@ This board plugs into the CPU socket of any machine with a Motorola 6800, 6802, 
 6) Click Confirm, Click Next
 7) Add BOM file "RPU V102 BOM"
 8) Add CPL file "RPU V102 Pick and Place"
-9) On the Bill of Materials Only check the boxes for C1-C5, R1-R8, and U5-U8
+9) On the Bill of Materials, the boxes for C1-C5, R1-R8, and U5-U8 should be checked already (you want all these)
 10) Click Next until your order is done
   
 ## OLED Power  
