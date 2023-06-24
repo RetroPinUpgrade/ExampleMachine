@@ -21,7 +21,7 @@ class DropTargetBank
     byte CheckIfBankCleared();
     void Update(unsigned long currentTime);
     void ResetDropTargets(unsigned long timeToReset, boolean ignoreQuickDrops=false);
-    byte GetStatus();
+    byte GetStatus(boolean readSwitches = true);
 
   private:
     byte numSwitches;
@@ -131,14 +131,18 @@ byte DropTargetBank::CheckIfBankCleared() {
   return 0;
 }
 
-byte DropTargetBank::GetStatus() {
-  byte bitMask = 0x01;
-  byte returnStatus = 0x00;
-  for (byte count=0; count<numSwitches; count++) {
-    if (RPU_ReadSingleSwitchState(switchArray[count])) returnStatus |= bitMask;
-    bitMask *= 2;
+byte DropTargetBank::GetStatus(boolean readSwitches) {
+  if (readSwitches) {
+    byte bitMask = 0x01;
+    byte returnStatus = 0x00;
+    for (byte count=0; count<numSwitches; count++) {
+      if (RPU_ReadSingleSwitchState(switchArray[count])) returnStatus |= bitMask;
+      bitMask *= 2;
+    }
+    return returnStatus;
+  } else {
+    return bankStatus;
   }
-  return returnStatus;
 }
 
 
@@ -147,12 +151,14 @@ void DropTargetBank::ResetDropTargets(unsigned long timeToReset, boolean ignoreQ
   targetsHitInOrder = true;
   numTargetsInOrder = 0;
 
+  if (targetResetTime) {
+    // We've already requested this bank to reset, so don't queue it again
+    return;    
+  }
+
   if (numSolenoids) {
     for (byte count=0; count<numSolenoids; count++) {
       if (solArray[count]!=0xFF) RPU_PushToTimedSolenoidStack(solArray[count], solenoidOnTime, timeToReset);
-//      char buf[256];
-//      sprintf(buf, "Resetting sol %d for %d cycles at %lu\n", solArray[count], solenoidOnTime, timeToReset);
-//      Serial.write(buf);      
     }
     targetResetTime = timeToReset + 100; // This could be based on solenoidOnTime, but that's not currently set in ms
     if (ignoreQuickDrops) {

@@ -97,6 +97,22 @@ boolean MachineStateChanged = true;
 #define SOUND_EFFECT_COIN_DROP_3        102
 #define SOUND_EFFECT_MACHINE_START      120
 
+#if (RPU_MPU_ARCHITECTURE<10) && !defined(RPU_OS_DISABLE_CPC_FOR_SPACE)
+// This array maps the self-test modes to audio callouts
+unsigned short SelfTestStateToCalloutMap[34] = {  136, 137, 135, 134, 133, 140, 141, 142, 139, 143, 144, 145, 146, 147, 148, 149, 138, 150, 151, 152,
+                                                  153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166 };
+#elif (RPU_MPU_ARCHITECTURE<10) && defined(RPU_OS_DISABLE_CPC_FOR_SPACE)
+unsigned short SelfTestStateToCalloutMap[31] = {  136, 137, 135, 134, 133, 140, 141, 142, 139, 143, 144, 145, 146, 147, 148, 149, 138, 
+                                                  153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166 };
+#elif (RPU_MPU_ARCHITECTURE>=10) && !defined(RPU_OS_DISABLE_CPC_FOR_SPACE)
+// This array maps the self-test modes to audio callouts
+unsigned short SelfTestStateToCalloutMap[34] = {  134, 135, 133, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152,
+                                                  153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166 };
+#elif (RPU_MPU_ARCHITECTURE>=10) && defined(RPU_OS_DISABLE_CPC_FOR_SPACE)
+unsigned short SelfTestStateToCalloutMap[34] = {  134, 135, 133, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 
+                                                  153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166 };
+#endif
+
 #define SOUND_EFFECT_SELF_TEST_MODE_START             132
 #define SOUND_EFFECT_SELF_TEST_CPC_START              180
 #define SOUND_EFFECT_SELF_TEST_AUDIO_OPTIONS_START    190
@@ -125,12 +141,23 @@ boolean MachineStateChanged = true;
 #define SOUND_EFFECT_VP_SHOOT_AGAIN         310
 
 
-#define SOUND_EFFECT_DIAG_SELECTOR_SWITCH_ON                      500
-#define SOUND_EFFECT_DIAG_SELECTOR_SWITCH_OFF                     501
-#define SOUND_EFFECT_DIAG_CREDIT_RESET_BUTTON                     502
-#define SOUND_EFFECT_DIAG_STARTING_DIAGNOSTICS_MODE               503
-#define SOUND_EFFECT_DIAG_STARTING_ORIGINAL_CODE                  504
-#define SOUND_EFFECT_DIAG_STARTING_NEW_CODE                       505
+#define SOUND_EFFECT_DIAG_START                   1900
+#define SOUND_EFFECT_DIAG_CREDIT_RESET_BUTTON     1900
+#define SOUND_EFFECT_DIAG_SELECTOR_SWITCH_ON      1901
+#define SOUND_EFFECT_DIAG_SELECTOR_SWITCH_OFF     1902
+#define SOUND_EFFECT_DIAG_STARTING_ORIGINAL_CODE  1903
+#define SOUND_EFFECT_DIAG_STARTING_NEW_CODE       1904
+#define SOUND_EFFECT_DIAG_ORIGINAL_CPU_DETECTED   1905
+#define SOUND_EFFECT_DIAG_ORIGINAL_CPU_RUNNING    1906
+#define SOUND_EFFECT_DIAG_PROBLEM_PIA_U10         1907
+#define SOUND_EFFECT_DIAG_PROBLEM_PIA_U11         1908
+#define SOUND_EFFECT_DIAG_PROBLEM_PIA_1           1909
+#define SOUND_EFFECT_DIAG_PROBLEM_PIA_2           1910
+#define SOUND_EFFECT_DIAG_PROBLEM_PIA_3           1911
+#define SOUND_EFFECT_DIAG_PROBLEM_PIA_4           1912
+#define SOUND_EFFECT_DIAG_PROBLEM_PIA_5           1913
+#define SOUND_EFFECT_DIAG_STARTING_DIAGNOSTICS_MODE   1914
+
 
 #define MAX_DISPLAY_BONUS     10
 #define TILT_WARNING_DEBOUNCE_TIME      1000
@@ -1013,7 +1040,6 @@ unsigned long SoundSettingTimeout = 0;
 unsigned long AdjustmentScore;
 
 
-
 int RunSelfTest(int curState, boolean curStateChanged) {
   int returnState = curState;
   CurrentNumPlayers = 0;
@@ -1023,11 +1049,9 @@ int RunSelfTest(int curState, boolean curStateChanged) {
     //  reset while the WAV Trigger was already playing.
     Audio.StopAllAudio();
     RPU_TurnOffAllLamps();
-//    PlaySoundEffect(SOUND_EFFECT_SELF_TEST_MODE_START-curState, 0, true);
     Audio.StopAllAudio();
-//    int modeMapping = SelfTestStateToCalloutMap[-1 - curState];
-//    Audio.PlaySound((unsigned short)modeMapping, AUDIO_PLAY_TYPE_WAV_TRIGGER, 10);
-    Audio.PlaySound((unsigned short)(SOUND_EFFECT_SELF_TEST_MODE_START-curState), AUDIO_PLAY_TYPE_WAV_TRIGGER, 10);
+    int modeMapping = SelfTestStateToCalloutMap[-1 - curState];
+    Audio.PlaySound((unsigned short)modeMapping, AUDIO_PLAY_TYPE_WAV_TRIGGER, 10);
   } else {
     if (SoundSettingTimeout && CurrentTime>SoundSettingTimeout) {
       SoundSettingTimeout = 0;
@@ -1605,7 +1629,11 @@ int RunAttractMode(int curState, boolean curStateChanged) {
       AddCoin(SwitchToChuteNum(switchHit));
     }
     if (switchHit == SW_SELF_TEST_SWITCH && (CurrentTime - GetLastSelfTestChangedTime()) > 250) {
+#if (RPU_MPU_ARCHITECTURE<10)
+      returnState = MACHINE_STATE_TEST_LAMPS;
+#else      
       returnState = MACHINE_STATE_TEST_BOOT;
+#endif      
       SetLastSelfTestChangedTime(CurrentTime);
     }
   }
@@ -2296,7 +2324,11 @@ int HandleSystemSwitches(int curState, byte switchHit) {
   int returnState = curState;
   switch (switchHit) {
     case SW_SELF_TEST_SWITCH:
+#if (RPU_MPU_ARCHITECTURE<10)
+      returnState = MACHINE_STATE_TEST_LAMPS;
+#else      
       returnState = MACHINE_STATE_TEST_BOOT;
+#endif      
       SetLastSelfTestChangedTime(CurrentTime);
       break;
     case SW_COIN_1:

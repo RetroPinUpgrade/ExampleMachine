@@ -38,6 +38,7 @@ byte SoundPlaying = 0;
 byte SoundToPlay = 0;
 boolean SolenoidCycle = true;
 
+#ifndef RPU_OS_DISABLE_CPC_FOR_SPACE
 boolean CPCSelectionsHaveBeenRead = false;
 #define NUM_CPC_PAIRS 9
 byte CPCPairs[NUM_CPC_PAIRS][2] = {
@@ -90,7 +91,17 @@ byte GetCPCCredits(byte cpcSelection) {
   if (cpcSelection>=NUM_CPC_PAIRS) return 1;
   return CPCPairs[cpcSelection][1];
 }
+#endif
 
+#ifdef RPU_OS_USE_7_DIGIT_DISPLAYS
+#ifdef RPU_OS_USE_6_DIGIT_CREDIT_DISPLAY_WITH_7_DIGIT_DISPLAYS
+#define TOTAL_DISPLAY_DIGITS 34
+#else
+#define TOTAL_DISPLAY_DIGITS 35
+#endif
+#else
+#define TOTAL_DISPLAY_DIGITS 30
+#endif
 
 int RunBaseSelfTest(int curState, boolean curStateChanged, unsigned long CurrentTime, byte resetSwitch, byte slamSwitch) {
   byte curSwitch = RPU_PullFirstFromSwitchStack();
@@ -98,7 +109,9 @@ int RunBaseSelfTest(int curState, boolean curStateChanged, unsigned long Current
   boolean resetDoubleClick = false;
   unsigned short savedScoreStartByte = 0;
   unsigned short auditNumStartByte = 0;
+#ifndef RPU_OS_DISABLE_CPC_FOR_SPACE  
   unsigned short cpcSelectorStartByte = 0;
+#endif
 
   if (curSwitch==resetSwitch) {
     ResetHold = CurrentTime;
@@ -144,18 +157,29 @@ int RunBaseSelfTest(int curState, boolean curStateChanged, unsigned long Current
       RPU_SetDisplayBlank(count, 0x00);        
     }
 
-    if (curState<=MACHINE_STATE_TEST_HISCR) {
-      RPU_SetDisplayCredits(MACHINE_STATE_TEST_BOOT-curState, true);
-      RPU_SetDisplayBallInPlay(0, false);
+#if (RPU_MPU_ARCHITECTURE<10)
+    if (curState<=MACHINE_STATE_TEST_SCORE_LEVEL_1) {
+      RPU_SetDisplayCredits(0, false);
+      RPU_SetDisplayBallInPlay(MACHINE_STATE_TEST_SOUNDS-curState);
+    } else {
+      RPU_SetDisplayCredits(0 - curState, true);
+      RPU_SetDisplayBallInPlay(0, false);      
     }
+#else
+    if (curState<=MACHINE_STATE_TEST_HISCR) {
+      //RPU_SetDisplayCredits(4, true);
+      RPU_SetDisplayBallInPlay(MACHINE_STATE_TEST_BOOT-curState, false);
+    } else {
+      RPU_SetDisplayCredits(4+curState, true);
+      RPU_SetDisplayBallInPlay(0, false);      
+    }
+#endif      
   }
 
-  if (curState==MACHINE_STATE_TEST_LIGHTS) {
+  if (curState==MACHINE_STATE_TEST_LAMPS) {
     if (curStateChanged) {
       RPU_DisableSolenoidStack();        
       RPU_SetDisableFlippers(true);
-      RPU_SetDisplayCredits(0);
-      RPU_SetDisplayBallInPlay(2);
       RPU_TurnOffAllLamps();
       for (int count=0; count<RPU_MAX_LAMPS; count++) {
         RPU_SetLampState(count, 1, 0, 500);
@@ -186,8 +210,6 @@ int RunBaseSelfTest(int curState, boolean curStateChanged, unsigned long Current
   } else if (curState==MACHINE_STATE_TEST_DISPLAYS) {
     if (curStateChanged) {
       RPU_TurnOffAllLamps();
-      RPU_SetDisplayCredits(0);
-      RPU_SetDisplayBallInPlay(1);
       for (int count=0; count<4; count++) {
         RPU_SetDisplayBlank(count, RPU_OS_ALL_DIGITS_MASK);        
       }
@@ -196,10 +218,15 @@ int RunBaseSelfTest(int curState, boolean curStateChanged, unsigned long Current
     if (curSwitch==resetSwitch || resetDoubleClick) {
       if (RPU_GetUpDownSwitchState()) {
         CurValue += 1;
-        if (CurValue>30) CurValue = 0;
+        if (CurValue>TOTAL_DISPLAY_DIGITS) {
+          for (int count=0; count<4; count++) {
+            RPU_SetDisplayBlank(count, RPU_OS_ALL_DIGITS_MASK);        
+          }
+          CurValue = 0;
+        }
       } else {
         if (CurValue>0) CurValue -= 1;
-        else CurValue = 30;
+        else CurValue = TOTAL_DISPLAY_DIGITS;
       }
     }    
     RPU_CycleAllDisplays(CurrentTime, CurValue);
@@ -209,9 +236,7 @@ int RunBaseSelfTest(int curState, boolean curStateChanged, unsigned long Current
       LastSolTestTime = CurrentTime;
       RPU_EnableSolenoidStack(); 
       RPU_SetDisableFlippers(false);
-      RPU_SetDisplayBlank(4, 0);
-      RPU_SetDisplayCredits(0);
-      RPU_SetDisplayBallInPlay(3);
+      //RPU_SetDisplayBlank(4, 0);
       SolenoidCycle = true;
       SavedValue = 0;
       RPU_PushToSolenoidStack(SavedValue, 10);
@@ -223,7 +248,11 @@ int RunBaseSelfTest(int curState, boolean curStateChanged, unsigned long Current
     if ((CurrentTime-LastSolTestTime)>1000) {
       if (SolenoidCycle) {
         SavedValue += 1;
+#if (RPU_MPU_ARCHITECTURE<10)
+        if (SavedValue>14) SavedValue = 0;
+#else        
         if (SavedValue>21) SavedValue = 0;
+#endif        
       }
       RPU_PushToSolenoidStack(SavedValue, 10);
       RPU_SetDisplay(0, SavedValue, true);
@@ -235,8 +264,6 @@ int RunBaseSelfTest(int curState, boolean curStateChanged, unsigned long Current
       RPU_TurnOffAllLamps();
       RPU_DisableSolenoidStack(); 
       RPU_SetDisableFlippers(true);
-      RPU_SetDisplayCredits(0);
-      RPU_SetDisplayBallInPlay(4);
     }
 
     byte displayOutput = 0;
@@ -254,8 +281,6 @@ int RunBaseSelfTest(int curState, boolean curStateChanged, unsigned long Current
     }
 
   } else if (curState==MACHINE_STATE_TEST_SOUNDS) {
-    RPU_SetDisplayCredits(0);
-    RPU_SetDisplayBallInPlay(5);
 #ifdef RPU_OS_USE_SB100    
     byte soundToPlay = 0x01 << (((CurrentTime-LastSelfTestChange)/750)%8);
     if (SoundPlaying!=soundToPlay) {
@@ -302,8 +327,6 @@ int RunBaseSelfTest(int curState, boolean curStateChanged, unsigned long Current
 #endif
   } else if (curState==MACHINE_STATE_TEST_BOOT) {
     if (curStateChanged) {
-      RPU_SetDisplayCredits(0);
-      RPU_SetDisplayBallInPlay(0);
       for (int count=0; count<4; count++) {
         RPU_SetDisplay(count, 8007, true);
       }
@@ -312,7 +335,11 @@ int RunBaseSelfTest(int curState, boolean curStateChanged, unsigned long Current
       returnState = MACHINE_STATE_ATTRACT;
     }
     for (int count=0; count<4; count++) {
+#ifdef RPU_OS_USE_7_DIGIT_DISPLAYS
+      RPU_SetDisplayBlank(count, ((CurrentTime/500)%2)?0x78:0x00);
+#else      
       RPU_SetDisplayBlank(count, ((CurrentTime/500)%2)?0x3C:0x00);
+#endif      
     }
   } else if (curState==MACHINE_STATE_TEST_SCORE_LEVEL_1) {
 #ifdef RPU_OS_USE_SB100    
@@ -353,12 +380,14 @@ int RunBaseSelfTest(int curState, boolean curStateChanged, unsigned long Current
     auditNumStartByte = RPU_CHUTE_1_COINS_START_BYTE;
   } else if (curState==MACHINE_STATE_TEST_CHUTE_3_COINS) {
     auditNumStartByte = RPU_CHUTE_3_COINS_START_BYTE;
+#ifndef RPU_OS_DISABLE_CPC_FOR_SPACE      
   } else if (curState==MACHINE_STATE_ADJUST_CPC_CHUTE_1) {
     cpcSelectorStartByte = RPU_CPC_CHUTE_1_SELECTION_BYTE;
   } else if (curState==MACHINE_STATE_ADJUST_CPC_CHUTE_2) {
     cpcSelectorStartByte = RPU_CPC_CHUTE_2_SELECTION_BYTE;
   } else if (curState==MACHINE_STATE_ADJUST_CPC_CHUTE_3) {
     cpcSelectorStartByte = RPU_CPC_CHUTE_3_SELECTION_BYTE;
+#endif    
   }
 
   if (savedScoreStartByte) {
@@ -418,6 +447,7 @@ int RunBaseSelfTest(int curState, boolean curStateChanged, unsigned long Current
     
   }
 
+#ifndef RPU_OS_DISABLE_CPC_FOR_SPACE  
   if (cpcSelectorStartByte) {
     if (curStateChanged) {
       SavedValue = RPU_ReadByteFromEEProm(cpcSelectorStartByte);
@@ -430,7 +460,7 @@ int RunBaseSelfTest(int curState, boolean curStateChanged, unsigned long Current
       byte lastValue = (byte)SavedValue;
       if (RPU_GetUpDownSwitchState()) {
         SavedValue += 1;
-        if (SavedValue>=NUM_CPC_PAIRS) SavedValue = (NUM_CPC_PAIRS-1);
+        if (SavedValue>=NUM_CPC_PAIRS) SavedValue = 0;
       } else {
         if (SavedValue>0) SavedValue -= 1;
       }
@@ -444,6 +474,7 @@ int RunBaseSelfTest(int curState, boolean curStateChanged, unsigned long Current
       }
     }
   }
+#endif  
   
   return returnState;
 }

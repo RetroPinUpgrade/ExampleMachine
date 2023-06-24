@@ -22,7 +22,6 @@
  
 #include <Arduino.h>
 #include <EEPROM.h>
-//#define DEBUG_MESSAGES    1
 #define RPU_CPP_FILE
 #include "RPU_config.h"
 #include "RPU.h"

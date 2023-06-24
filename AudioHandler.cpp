@@ -678,9 +678,6 @@ boolean AudioHandler::QueuePrioritizedNotification(unsigned short notificationIn
   if (priority>topQueuePriority) {
     ClearNotificationStack();  
   }
-  if (priority>currentNotificationPriority) {
-    StopCurrentNotification();
-  }
 
   // If there's nothing playing, we can play it now
   if (currentNotificationPlaying == INVALID_SOUND_INDEX) {
@@ -689,7 +686,7 @@ boolean AudioHandler::QueuePrioritizedNotification(unsigned short notificationIn
     }
     if (notificationLength) nextVoiceNotificationPlayTime = currentTime + (unsigned long)(notificationLength);
     else nextVoiceNotificationPlayTime = 0;
-    
+
     wTrig.trackPlayPoly(notificationIndex);
     wTrig.trackGain(notificationIndex, notificationsGain);
     currentNotificationStartTime = currentTime;
@@ -741,7 +738,7 @@ boolean AudioHandler::ServiceNotificationQueue(unsigned long currentTime) {
       playNextNotification = true;
     }
   } else {
-    if (currentNotificationPlaying!=INVALID_SOUND_INDEX && !wTrig.isTrackPlaying(currentNotificationPlaying)) {      
+    if (currentNotificationPlaying!=INVALID_SOUND_INDEX && !wTrig.isTrackPlaying(currentNotificationPlaying)) { 
       if (currentTime>(currentNotificationStartTime+100)) playNextNotification = true;
     }
   }
@@ -865,7 +862,7 @@ boolean AudioHandler::PlaySound(unsigned short soundIndex, byte audioType, byte 
 
   if (audioType==AUDIO_PLAY_TYPE_CHIMES) {
 #if defined(RPU_OS_USE_SB100)
-    RPU_PlaySB100Chime((byte)soundIndex);
+//    RPU_PlaySB100Chime((byte)soundIndex);
     soundPlayed = true;
 #endif
   } else if (audioType==AUDIO_PLAY_TYPE_ORIGINAL_SOUNDS) {
