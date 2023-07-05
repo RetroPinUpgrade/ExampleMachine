@@ -19,9 +19,9 @@
  */
 
 #include <Arduino.h>
-#include "SelfTestAndAudit.h"
 #include "RPU_Config.h"
 #include "RPU.h"
+#include "SelfTestAndAudit.h"
 
 #define MACHINE_STATE_ATTRACT         0
 
@@ -167,10 +167,10 @@ int RunBaseSelfTest(int curState, boolean curStateChanged, unsigned long Current
     }
 #else
     if (curState<=MACHINE_STATE_TEST_HISCR) {
-      //RPU_SetDisplayCredits(4, true);
-      RPU_SetDisplayBallInPlay(MACHINE_STATE_TEST_BOOT-curState, false);
+      RPU_SetDisplayCredits(0, false);
+      RPU_SetDisplayBallInPlay(MACHINE_STATE_TEST_BOOT-curState, true);
     } else {
-      RPU_SetDisplayCredits(4+curState, true);
+      RPU_SetDisplayCredits(curState - MACHINE_STATE_TEST_BOOT, true);
       RPU_SetDisplayBallInPlay(0, false);      
     }
 #endif      

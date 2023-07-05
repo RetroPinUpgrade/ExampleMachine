@@ -156,7 +156,7 @@ unsigned short SelfTestStateToCalloutMap[34] = {  134, 135, 133, 136, 137, 138, 
 #define SOUND_EFFECT_DIAG_PROBLEM_PIA_3           1911
 #define SOUND_EFFECT_DIAG_PROBLEM_PIA_4           1912
 #define SOUND_EFFECT_DIAG_PROBLEM_PIA_5           1913
-#define SOUND_EFFECT_DIAG_STARTING_DIAGNOSTICS_MODE   1914
+#define SOUND_EFFECT_DIAG_STARTING_DIAGNOSTICS    1914
 
 
 #define MAX_DISPLAY_BONUS     10
@@ -355,16 +355,12 @@ void setup() {
   // Set up the chips and interrupts
   unsigned long initResult = 0;
   if (DEBUG_MESSAGES) Serial.write("Initializing MPU\n");
-#if (RPU_OS_HARDWARE_REV<4)
-  // These hardware revs don't have the ability to check Credit/Reset switch while holding
-  // the MPU in Reset, so we have to choose original/new code with a physical switch
-  initResult = RPU_InitializeMPU(RPU_CMD_BOOT_ORIGINAL | RPU_CMD_BOOT_NEW_IF_SWITCH_CLOSED | RPU_CMD_INIT_AND_RETURN_EVEN_IF_ORIGINAL_CHOSEN | RPU_CMD_PERFORM_MPU_TEST);
-#else
-  // For Rev 4 and greater, the Credit/Reset button can choose original (hold while powering on)
-  // and the physical switch is just a backup in case the operator wants to force original
-  // code to boot.
-  initResult = RPU_InitializeMPU(RPU_CMD_BOOT_ORIGINAL_IF_CREDIT_RESET | RPU_CMD_INIT_AND_RETURN_EVEN_IF_ORIGINAL_CHOSEN | RPU_CMD_PERFORM_MPU_TEST | RPU_CMD_BOOT_ORIGINAL_IF_SWITCH_CLOSED, SW_CREDIT_RESET);
-#endif
+
+  // If the hardware has the ability to switch on the Credit/Reset button (requires Rev 4 or greater)
+  // then that can be used to choose Original or New code. Otherwise, the hardware switch
+  // will choose Original if open, and New if closed
+  initResult = RPU_InitializeMPU(   RPU_CMD_BOOT_ORIGINAL_IF_CREDIT_RESET | RPU_CMD_BOOT_ORIGINAL_IF_NOT_SWITCH_CLOSED |
+                                    RPU_CMD_INIT_AND_RETURN_EVEN_IF_ORIGINAL_CHOSEN | RPU_CMD_PERFORM_MPU_TEST, SW_CREDIT_RESET);
 
   if (DEBUG_MESSAGES) {
     char buf[128];
@@ -374,31 +370,27 @@ void setup() {
     else if (initResult&RPU_RET_6802_OR_8_DETECTED) Serial.write("Detected 6802/8 clock\n");
     Serial.write("Back from init\n");
   }
-  if (initResult&RPU_RET_ORIGINAL_CODE_REQUESTED) {
-    if (DEBUG_MESSAGES) {
-      Serial.write("Running original code\n");
-    }
-    delay(100);
-    while (1);
-  }
-
+  
   if (initResult & RPU_RET_SELECTOR_SWITCH_ON) QueueDIAGNotification(SOUND_EFFECT_DIAG_SELECTOR_SWITCH_ON);
   else QueueDIAGNotification(SOUND_EFFECT_DIAG_SELECTOR_SWITCH_OFF);
+  
   if (initResult & RPU_RET_CREDIT_RESET_BUTTON_HIT) QueueDIAGNotification(SOUND_EFFECT_DIAG_CREDIT_RESET_BUTTON);
 
   if (initResult & RPU_RET_DIAGNOSTIC_REQUESTED) {
-    QueueDIAGNotification(SOUND_EFFECT_DIAG_STARTING_DIAGNOSTICS_MODE);
+    QueueDIAGNotification(SOUND_EFFECT_DIAG_STARTING_DIAGNOSTICS);
     // Run diagnostics here:    
   }
 
   if (initResult & RPU_RET_ORIGINAL_CODE_REQUESTED) {
-    delay(100); // allow messages about selector switch to start before starting another message
+    delay(100);
     QueueDIAGNotification(SOUND_EFFECT_DIAG_STARTING_ORIGINAL_CODE);
+    delay(100);
     while (Audio.Update(millis()));
     // Arduino should hang if original code is running
     while (1);
   }
   QueueDIAGNotification(SOUND_EFFECT_DIAG_STARTING_NEW_CODE);
+  
   RPU_DisableSolenoidStack();
   RPU_SetDisableFlippers(true);
 
@@ -1105,8 +1097,12 @@ int RunSelfTest(int curState, boolean curStateChanged) {
         RPU_SetDisplay(count, 0);
         RPU_SetDisplayBlank(count, 0x00);
       }
-      RPU_SetDisplayCredits(MACHINE_STATE_TEST_BOOT - curState);
-      RPU_SetDisplayBallInPlay(0, false);
+      RPU_SetDisplayCredits(0, false);
+#if (RPU_MPU_ARCHITECTURE<10)
+      RPU_SetDisplayBallInPlay(MACHINE_STATE_TEST_SOUNDS - curState);
+#else
+      RPU_SetDisplayBallInPlay(MACHINE_STATE_TEST_BOOT - curState);
+#endif      
       CurrentAdjustmentByte = NULL;
       CurrentAdjustmentUL = NULL;
       CurrentAdjustmentStorageByte = 0;

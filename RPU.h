@@ -22,7 +22,7 @@
 #ifndef RPU_OS_H
 
 #define RPU_OS_MAJOR_VERSION  5
-#define RPU_OS_MINOR_VERSION  2
+#define RPU_OS_MINOR_VERSION  4
 
 struct PlayfieldAndCabinetSwitch {
   byte switchNum;
@@ -37,19 +37,20 @@ struct PlayfieldAndCabinetSwitch {
 #define CONTSOL_DISABLE_COIN_LOCKOUT  0x20
 
 
-#define RPU_CMD_BOOT_ORIGINAL                   0x0001
-#define RPU_CMD_BOOT_NEW                        0x0002
-#define RPU_CMD_BOOT_ORIGINAL_IF_CREDIT_RESET   0x0004
-#define RPU_CMD_BOOT_NEW_IF_CREDIT_RESET        0x0008
-#define RPU_CMD_BOOT_ORIGINAL_IF_SWITCH_CLOSED  0x0010
-#define RPU_CMD_BOOT_NEW_IF_SWITCH_CLOSED       0x0020
-#define RPU_CMD_AUTODETECT_ARCHITECTURE         0x0040
-#define RPU_CMD_PERFORM_MPU_TEST                0x0080
+// RPU_InitializeMPU will always boot none of the following
+// parameters are set to force it back to original code
+#define RPU_CMD_BOOT_ORIGINAL                       0x0001    /* This will boot to original unconditionally (disables new code completely for this install) */
+#define RPU_CMD_BOOT_ORIGINAL_IF_CREDIT_RESET       0x0002    /* Only supported on Rev 4 or greater, boots original if the C/R button is held at power on */ 
+#define RPU_CMD_BOOT_ORIGINAL_IF_NOT_CREDIT_RESET   0x0004    /* Only supported on Rev 4 or greater, boots original if the C/R button is NOT held at power on */ 
+#define RPU_CMD_BOOT_ORIGINAL_IF_SWITCH_CLOSED      0x0008    /* boots to original if the switch is closed at power on */
+#define RPU_CMD_BOOT_ORIGINAL_IF_NOT_SWITCH_CLOSED  0x0010    /* boots to original if the switch is NOT closed at power on */
+#define RPU_CMD_AUTODETECT_ARCHITECTURE             0x0040    /* For Rev 101 and greater--the code detects architecture of board (mainly for diagnostics applications) */
+#define RPU_CMD_PERFORM_MPU_TEST                    0x0080    /* perform basic tests on PIAs and return result codes */
 
 // If the caller chooses this option, it's up to them
 // to honor the RPU_RET_ORIGINAL_CODE_REQUESTED return
 // flag and halt the Arduino with a while(1);
-#define RPU_CMD_INIT_AND_RETURN_EVEN_IF_ORIGINAL_CHOSEN  0x0100
+#define RPU_CMD_INIT_AND_RETURN_EVEN_IF_ORIGINAL_CHOSEN   0x0100
 
 #define RPU_RET_NO_ERRORS                 0
 #define RPU_RET_U10_PIA_ERROR             0x0001
@@ -70,7 +71,7 @@ struct PlayfieldAndCabinetSwitch {
 // Function Prototypes
 
 //   Initialization
-unsigned long RPU_InitializeMPU(unsigned long initOptions=RPU_CMD_BOOT_NEW_IF_SWITCH_CLOSED|RPU_CMD_PERFORM_MPU_TEST, byte creditResetSwitch=0xFF);
+unsigned long RPU_InitializeMPU(unsigned long initOptions=RPU_CMD_PERFORM_MPU_TEST, byte creditResetSwitch=0xFF);
 void RPU_SetupGameSwitches(int s_numSwitches, int s_numPrioritySwitches, PlayfieldAndCabinetSwitch *s_gameSwitchArray);
 byte RPU_GetDipSwitches(byte index);
 

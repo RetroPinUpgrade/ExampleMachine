@@ -1158,7 +1158,6 @@ void AudioHandler::StartNextSoundtrackSong(unsigned long currentTime) {
 
 
 
-
 void AudioHandler::ManageBackgroundSong(unsigned long currentTime) {
   if (curSoundtrack==NULL) return; 
 
