@@ -2564,8 +2564,10 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
 }
 
 
+#if (RPU_MPU_ARCHITECTURE>=10)
 unsigned long LastLEDUpdateTime = 0;
 byte LEDPhase = 0;
+#endif
 //unsigned long NumLoops = 0;
 //unsigned long LastLoopReportTime = 0;
 
@@ -2607,12 +2609,12 @@ void loop() {
   RPU_Update(CurrentTime);
   Audio.Update(CurrentTime);
 
-
+#if (RPU_MPU_ARCHITECTURE>=10)
   if (LastLEDUpdateTime == 0 || (CurrentTime - LastLEDUpdateTime) > 250) {
     LastLEDUpdateTime = CurrentTime;
     RPU_SetBoardLEDs((LEDPhase % 8) == 1 || (LEDPhase % 8) == 3, (LEDPhase % 8) == 5 || (LEDPhase % 8) == 7);
     LEDPhase += 1;
   }
+#endif  
   
-
 }
