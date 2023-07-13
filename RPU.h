@@ -71,7 +71,9 @@ struct PlayfieldAndCabinetSwitch {
 // Function Prototypes
 
 //   Initialization
-unsigned long RPU_InitializeMPU(unsigned long initOptions=RPU_CMD_PERFORM_MPU_TEST, byte creditResetSwitch=0xFF);
+unsigned long RPU_InitializeMPU(  
+  unsigned long initOptions = RPU_CMD_BOOT_ORIGINAL_IF_CREDIT_RESET | RPU_CMD_BOOT_ORIGINAL_IF_NOT_SWITCH_CLOSED | RPU_CMD_PERFORM_MPU_TEST, 
+  byte creditResetSwitch = 0xFF );
 void RPU_SetupGameSwitches(int s_numSwitches, int s_numPrioritySwitches, PlayfieldAndCabinetSwitch *s_gameSwitchArray);
 byte RPU_GetDipSwitches(byte index);
 

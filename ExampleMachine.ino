@@ -382,6 +382,7 @@ void setup() {
   }
 
   if (initResult & RPU_RET_ORIGINAL_CODE_REQUESTED) {
+    if (DEBUG_MESSAGES) Serial.write("Asked to run original code\n");
     delay(100);
     QueueDIAGNotification(SOUND_EFFECT_DIAG_STARTING_ORIGINAL_CODE);
     delay(100);
@@ -2563,6 +2564,8 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
 }
 
 
+unsigned long LastLEDUpdateTime = 0;
+byte LEDPhase = 0;
 //unsigned long NumLoops = 0;
 //unsigned long LastLoopReportTime = 0;
 
@@ -2603,5 +2606,13 @@ void loop() {
 
   RPU_Update(CurrentTime);
   Audio.Update(CurrentTime);
+
+
+  if (LastLEDUpdateTime == 0 || (CurrentTime - LastLEDUpdateTime) > 250) {
+    LastLEDUpdateTime = CurrentTime;
+    RPU_SetBoardLEDs((LEDPhase % 8) == 1 || (LEDPhase % 8) == 3, (LEDPhase % 8) == 5 || (LEDPhase % 8) == 7);
+    LEDPhase += 1;
+  }
+  
 
 }

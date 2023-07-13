@@ -26,6 +26,8 @@
 #include "RPU_config.h"
 #include "RPU.h"
 
+#define DEBUG_MESSAGES  0
+
 #ifndef RPU_OS_HARDWARE_REV
 #define RPU_OS_HARDWARE_REV 1
 #endif
@@ -114,8 +116,11 @@ volatile byte SwitchesNow[NUM_SWITCH_BYTES];
 byte DipSwitches[4];
 #endif
 
-
+#if (RPU_OS_HARDWARE_REV>2)
 #define SOLENOID_STACK_SIZE 150
+#else 
+#define SOLENOID_STACK_SIZE 60
+#endif
 #define SOLENOID_STACK_EMPTY 0xFF
 volatile byte SolenoidStackFirst;
 volatile byte SolenoidStackLast;
@@ -1268,7 +1273,12 @@ unsigned long RPU_TestPIAs() {
   unsigned long piaErrors = 0;
   
   byte piaResult = RPU_DataRead(PIA_DISPLAY_CONTROL_A);
-  if (piaResult!=0x3D) piaErrors |= RPU_RET_PIA_1_ERROR;
+  if (piaResult!=0x3D) {
+    piaErrors |= RPU_RET_PIA_1_ERROR;
+    if (DEBUG_MESSAGES) Serial.write("* Error with Display PIA\n");
+  } else {
+    if (DEBUG_MESSAGES) Serial.write("* No error with Display PIA\n");
+  }
   piaResult = RPU_DataRead(PIA_DISPLAY_CONTROL_B);
   if (piaResult!=0x3D) piaErrors |= RPU_RET_PIA_1_ERROR;
 
@@ -3408,6 +3418,8 @@ boolean CheckCreditResetSwitchArch10(byte creditResetButton) {
 unsigned long RPU_InitializeMPUArch10(unsigned long initOptions, byte creditResetSwitch) {
   unsigned long retResult = RPU_RET_NO_ERRORS;
 
+  if (DEBUG_MESSAGES) Serial.write("* Init start\n");
+  
   // put the 680X buffers into tri-state
   pinMode(RPU_BUFFER_DISABLE, OUTPUT);
   digitalWrite(RPU_BUFFER_DISABLE, 1);
@@ -3430,8 +3442,13 @@ unsigned long RPU_InitializeMPUArch10(unsigned long initOptions, byte creditRese
   // Set VMA, R/W, and PHI2 to OUTPUT
   pinMode(RPU_VMA_PIN, OUTPUT);
   pinMode(RPU_RW_PIN, OUTPUT);
-  if (!UsesM6800Processor) pinMode(RPU_PHI2_PIN, OUTPUT);
-  else pinMode(RPU_PHI2_PIN, INPUT);
+  if (!UsesM6800Processor) {
+    pinMode(RPU_PHI2_PIN, OUTPUT);
+    if (DEBUG_MESSAGES) Serial.write("* compiled for 6802 or 6808\n");
+  } else {
+    pinMode(RPU_PHI2_PIN, INPUT);
+    if (DEBUG_MESSAGES) Serial.write("* compiled for 6800\n");
+  }
   // Make sure PIA IV (solenoid) CB2 is off so that solenoids are off
   RPU_SetAddressPinsDirection(RPU_PINS_OUTPUT);  
   RPU_DataWrite(PIA_SOLENOID_CONTROL_B, 0x30);
@@ -3517,7 +3534,12 @@ unsigned long RPU_InitializeMPUArch10(unsigned long initOptions, byte creditRese
   RPU_ClearVariables();
   RPU_SetAddressPinsDirection(RPU_PINS_OUTPUT);
   RPU_InitializePIAs();
-  if (initOptions&RPU_CMD_PERFORM_MPU_TEST) retResult |= RPU_TestPIAs();
+  if (initOptions&RPU_CMD_PERFORM_MPU_TEST) {
+    if (DEBUG_MESSAGES) Serial.write("* Going to test PIAs\n");
+    retResult |= RPU_TestPIAs();
+  } else {
+    if (DEBUG_MESSAGES) Serial.write("* Not asked to test PIAs\n");    
+  }
   RPU_SetupInterrupt();
 
   return retResult;
@@ -3526,11 +3548,31 @@ unsigned long RPU_InitializeMPUArch10(unsigned long initOptions, byte creditRese
 
 #endif
 
+#if (DEBUG_MESSAGES==1)
+unsigned long LastSwitchReport = 0;
+#endif
+
 void RPU_Update(unsigned long currentTime) {
   RPU_ApplyFlashToLamps(currentTime);
   RPU_UpdateTimedSolenoidStack(currentTime);
 #if (RPU_MPU_ARCHITECTURE>=10) && (defined(RPU_OS_USE_WTYPE_1_SOUND) || defined(RPU_OS_USE_WTYPE_2_SOUND))
   RPU_UpdateTimedSoundStack(currentTime);
+#endif
+
+#if (DEBUG_MESSAGES==1)
+  if (DEBUG_MESSAGES) {
+    if (currentTime>(LastSwitchReport+1000)) {
+      LastSwitchReport = currentTime;
+      char buf[128];
+      Serial.write("Switches = ");
+      for (byte count=0; count<8; count++) {
+        sprintf(buf, "0x%02X", SwitchesNow[count]);
+        Serial.write(buf);
+        if (count<7) Serial.write(", ");
+        else Serial.write("\n");
+      }
+    }
+  }
 #endif
 }
 
