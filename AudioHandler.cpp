@@ -95,6 +95,8 @@ int i;
 // **************************************************************
 void wavTrigger::update(void) {
 
+if (RPU_OS_HARDWARE_REV<=3) return;
+
 int i;
 uint8_t dat;
 uint8_t voice;

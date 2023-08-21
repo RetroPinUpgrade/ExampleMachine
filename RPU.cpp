@@ -67,6 +67,7 @@ boolean UsesM6800Processor = false;
 #define DEFAULT_SOLENOID_STATE          0x1F
 #define ST5_CONTINUOUS_SOLENOID_BIT     0x80
 #else 
+#define RPU_NUM_SOLENOIDS               15
 #define NUM_SWITCH_BYTES                5
 #define NUM_SWITCH_BYTES_ON_U10_PORT_A  5
 #define MAX_NUM_SWITCHES                40
@@ -78,6 +79,7 @@ boolean UsesM6800Processor = false;
 #endif
 
 #elif (RPU_MPU_ARCHITECTURE >= 10) 
+#define RPU_NUM_SOLENOIDS             22
 #define NUM_SWITCH_BYTES              8
 #define MAX_NUM_SWITCHES              64
 #ifndef INTERRUPT_OCR1A_COUNTER
@@ -1430,7 +1432,7 @@ int SpaceLeftOnSolenoidStack() {
 
 
 void RPU_PushToSolenoidStack(byte solenoidNumber, byte numPushes, boolean disableOverride) {
-  if (solenoidNumber>14) return;
+  if (solenoidNumber>=RPU_NUM_SOLENOIDS) return;
 
   // if the solenoid stack is disabled and this isn't an override push, then return
   if (!disableOverride && !SolenoidStackEnabled) return;
@@ -1897,9 +1899,15 @@ void RPU_SetDimDivisor(byte level, byte divisor) {
   if (level==2) DimDivisor2 = divisor;
 }
 
+// left shift is iterative on Arduinos, so a bit array is suprisingly faster
+byte BitShiftValues[8] = {0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80};
+
 void RPU_SetLampState(int lampNum, byte s_lampState, byte s_lampDim, int s_lampFlashPeriod) {
   if (lampNum>=RPU_MAX_LAMPS || lampNum<0) return;
-  
+  byte lampRow = lampNum%8;
+  byte lampCol = lampNum/8;
+  byte lampBit = BitShiftValues[lampRow];
+
   if (s_lampState) {
     int adjustedLampFlash = s_lampFlashPeriod/50;
     
@@ -1908,23 +1916,23 @@ void RPU_SetLampState(int lampNum, byte s_lampState, byte s_lampDim, int s_lampF
     
     // Only turn on the lamp if there's no flash, because if there's a flash
     // then the lamp will be turned on by the ApplyFlashToLamps function
-    if (s_lampFlashPeriod==0) LampStates[lampNum/8] &= ~(0x01<<(lampNum%8));
+    if (s_lampFlashPeriod==0) LampStates[lampCol] &= ~(lampBit);
     LampFlashPeriod[lampNum] = adjustedLampFlash;
   } else {
-    LampStates[lampNum/8] |= (0x01<<(lampNum%8));
+    LampStates[lampCol] |= lampBit;
     LampFlashPeriod[lampNum] = 0;
   }
 
   if (s_lampDim & 0x01) {    
-    LampDim1[lampNum/8] |= (0x01<<(lampNum%8));
+    LampDim1[lampCol] |= lampBit;
   } else {
-    LampDim1[lampNum/8] &= ~(0x01<<(lampNum%8));
+    LampDim1[lampCol] &= ~lampBit;
   }
 
   if (s_lampDim & 0x02) {    
-    LampDim2[lampNum/8] |= (0x01<<(lampNum%8));
+    LampDim2[lampCol] |= lampBit;
   } else {
-    LampDim2[lampNum/8] &= ~(0x01<<(lampNum%8));
+    LampDim2[lampCol] &= ~lampBit;
   }
 
 }
@@ -2440,7 +2448,7 @@ ISR(TIMER1_COMPA_vect) {    //This is the interrupt request
   // Blank Displays
   RPU_DataWrite(ADDRESS_U10_A_CONTROL, RPU_DataRead(ADDRESS_U10_A_CONTROL) & 0xF7);
   // Set all 5 display latch strobes high
-  RPU_DataWrite(ADDRESS_U11_A, (RPU_DataRead(ADDRESS_U11_A)/* & 0x03*/) | 0x01);
+  RPU_DataWrite(ADDRESS_U11_A, (RPU_DataRead(ADDRESS_U11_A)) | 0x01);
   RPU_DataWrite(ADDRESS_U10_A, 0x0F);
 
   byte displayStrobeMask = 0x01;
@@ -2510,6 +2518,86 @@ ISR(TIMER1_COMPA_vect) {    //This is the interrupt request
   RPU_DataWrite(ADDRESS_U10_A, backupU10A);    
 
 }
+
+/*
+ISR(TIMER1_COMPA_vect) {    //This is the interrupt request
+  // Backup U10A
+  byte backupU10A = RPU_DataRead(ADDRESS_U10_A);
+  
+  // Disable lamp decoders & strobe latch
+  RPU_DataWrite(ADDRESS_U10_A, 0xFF);
+  RPU_DataWrite(ADDRESS_U10_B_CONTROL, RPU_DataRead(ADDRESS_U10_B_CONTROL) | 0x08);
+  RPU_DataWrite(ADDRESS_U10_B_CONTROL, RPU_DataRead(ADDRESS_U10_B_CONTROL) & 0xF7);
+#ifdef RPU_OS_USE_AUX_LAMPS
+  // Also park the aux lamp board 
+  RPU_DataWrite(ADDRESS_U11_A_CONTROL, RPU_DataRead(ADDRESS_U11_A_CONTROL) | 0x08);
+  RPU_DataWrite(ADDRESS_U11_A_CONTROL, RPU_DataRead(ADDRESS_U11_A_CONTROL) & 0xF7);    
+#endif
+
+  // Blank Displays
+  RPU_DataWrite(ADDRESS_U10_A_CONTROL, RPU_DataRead(ADDRESS_U10_A_CONTROL) & 0xF7);
+  // Set all 5 display latch strobes high
+  RPU_DataWrite(ADDRESS_U11_A, (RPU_DataRead(ADDRESS_U11_A) & 0x03) | 0x01);
+  RPU_DataWrite(ADDRESS_U10_A, 0x0F);
+
+  // Write current display digits to 5 displays
+  for (int displayCount=0; displayCount<5; displayCount++) {
+
+    if (CurrentDisplayDigit<RPU_OS_NUM_DIGITS) {
+      // The BCD for this digit is in b4-b7, and the display latch strobes are in b0-b3 (and U11A:b0)
+      byte displayDataByte = ((DisplayDigits[displayCount][CurrentDisplayDigit])<<4) | 0x0F;
+      byte displayEnable = ((DisplayDigitEnable[displayCount])>>CurrentDisplayDigit)&0x01;
+
+      // if this digit shouldn't be displayed, then set data lines to 0xFX so digit will be blank
+      if (!displayEnable) displayDataByte = 0xFF;
+
+      // Set low the appropriate latch strobe bit
+      if (displayCount<4) {
+        displayDataByte &= ~(0x01<<displayCount);
+      }
+      // Write out the digit & strobe (if it's 0-3)
+      RPU_DataWrite(ADDRESS_U10_A, displayDataByte);
+      if (displayCount==4) {            
+        // Strobe #5 latch on U11A:b0
+        RPU_DataWrite(ADDRESS_U11_A, RPU_DataRead(ADDRESS_U11_A) & 0xFE);
+      }
+
+      // Need to delay a little to make sure the strobe is low for long enough
+      //WaitClockCycle(4);
+      delayMicroseconds(8);
+
+      // Put the latch strobe bits back high
+      if (displayCount<4) {
+        displayDataByte |= 0x0F;
+        RPU_DataWrite(ADDRESS_U10_A, displayDataByte);
+      } else {
+        RPU_DataWrite(ADDRESS_U11_A, RPU_DataRead(ADDRESS_U11_A) | 0x01);
+        
+        // Set proper display digit enable
+#ifdef RPU_OS_USE_7_DIGIT_DISPLAYS          
+        byte displayDigitsMask = (0x02<<CurrentDisplayDigit) | 0x01;
+#else
+        byte displayDigitsMask = (0x04<<CurrentDisplayDigit) | 0x01;
+#endif          
+        RPU_DataWrite(ADDRESS_U11_A, displayDigitsMask);
+      }
+    }
+  }
+
+  // Stop Blanking (current digits are all latched and ready)
+  RPU_DataWrite(ADDRESS_U10_A_CONTROL, RPU_DataRead(ADDRESS_U10_A_CONTROL) | 0x08);
+
+  // Restore 10A from backup
+  RPU_DataWrite(ADDRESS_U10_A, backupU10A);    
+
+  CurrentDisplayDigit = CurrentDisplayDigit + 1;
+  if (CurrentDisplayDigit>=RPU_OS_NUM_DIGITS) {
+    CurrentDisplayDigit = 0;
+    DisplayOffCycle ^= true;
+  }
+}
+*/
+
 
 void InterruptService3() {
   byte u10AControl = RPU_DataRead(ADDRESS_U10_A_CONTROL);
@@ -2704,7 +2792,7 @@ void InterruptService3() {
         interrupts();
         RPU_DataWrite(ADDRESS_U10_A, 0xFF);
         noInterrupts();
-      
+
         // Latch address & strobe
         RPU_DataWrite(ADDRESS_U10_A, lampData);
 #ifdef RPU_SLOW_DOWN_LAMP_STROBE      
@@ -2959,6 +3047,10 @@ unsigned long RPU_InitializeMPUArch1(unsigned long initOptions, byte creditReset
   boolean switchStateClosed = digitalRead(13) ? false : true;
   boolean bootToOriginal = false;
 
+  if (switchStateClosed) {
+    retResult |= RPU_RET_SELECTOR_SWITCH_ON;
+  }
+
   if (  (initOptions & RPU_CMD_BOOT_ORIGINAL) ||
         (switchStateClosed && (initOptions&RPU_CMD_BOOT_ORIGINAL_IF_SWITCH_CLOSED)) ||
         (!switchStateClosed && (initOptions&RPU_CMD_BOOT_ORIGINAL_IF_NOT_SWITCH_CLOSED)) ) {
@@ -2971,6 +3063,7 @@ unsigned long RPU_InitializeMPUArch1(unsigned long initOptions, byte creditReset
     digitalWrite(14, HIGH);
     if (initOptions&RPU_CMD_INIT_AND_RETURN_EVEN_IF_ORIGINAL_CHOSEN) {
       retResult |= RPU_RET_ORIGINAL_CODE_REQUESTED;
+      return retResult;
     } else {
       while (1);
     }
@@ -3553,6 +3646,11 @@ unsigned long LastSwitchReport = 0;
 #endif
 
 void RPU_Update(unsigned long currentTime) {
+
+  if (RPU_MPU_ARCHITECTURE==1) {
+    RPU_DataRead(0);
+  }
+  
   RPU_ApplyFlashToLamps(currentTime);
   RPU_UpdateTimedSolenoidStack(currentTime);
 #if (RPU_MPU_ARCHITECTURE>=10) && (defined(RPU_OS_USE_WTYPE_1_SOUND) || defined(RPU_OS_USE_WTYPE_2_SOUND))
