@@ -33,21 +33,21 @@
 // Hardware Rev 100 (different order of magnitude because it's a different approach) plugs into the CPU socket
 // Hardware Rev 101 - first RPU CPU interposer release board
 // Hardware Rev 102 - second RPU (with display and WIFI socket)
-#define RPU_OS_HARDWARE_REV   101
+#define RPU_OS_HARDWARE_REV   4
 
 // Available Architectures (0-9 is for B/S Boards, 10-19 is for W)
 //  RPU_MPU_ARCHITECTURE 1 = -17, -35, 100, 200, or compatible
 //  RPU_MPU_ARCHITECTURE 11 = Sys 4, 6
 //  RPU_MPU_ARCHITECTURE 13 = Sys 7
 //  RPU_MPU_ARCHITECTURE 15 = Sys 11
-#define RPU_MPU_ARCHITECTURE  11
+#define RPU_MPU_ARCHITECTURE  1
 
 // Some boards will assume a 6800 is the processor (RPU_OS_HARDWARE_REV 1 through 4)
 // and some boards will try to detect the processor (RPU_OS_HARDWARE_REV 102)
 // but in other cases we can specify if we're building for a 6800.
 // Define RPU_MPU_BUILD_FOR_6800 with a 0 for 6802 or 6808, and with
 // a 1 for 6800
-#define RPU_MPU_BUILD_FOR_6800  0
+#define RPU_MPU_BUILD_FOR_6800  1
 
 // These defines allow this configuration to eliminate some functions
 // to reduce program size
@@ -63,7 +63,7 @@
 //#define RPU_OS_USE_7_DIGIT_DISPLAYS
 //#define RPU_USE_EXTENDED_SWITCHES_ON_PB4
 //#define RPU_USE_EXTENDED_SWITCHES_ON_PB7
-#define RPU_OS_USE_WTYPE_1_SOUND
+//#define RPU_OS_USE_WTYPE_1_SOUND
 //#define RPU_OS_USE_WTYPE_2_SOUND
 //#define RPU_OS_USE_W11_SOUND
 
