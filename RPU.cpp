@@ -95,6 +95,10 @@ volatile byte DisplayCreditDigitEnable;
 volatile byte DisplayBIPDigits[2];
 volatile byte DisplayBIPDigitEnable;
 
+#if (RPU_MPU_ARCHITECTURE>=13)
+volatile byte DisplayCommas;
+#endif
+
 #if (RPU_MPU_ARCHITECTURE == 15)
 volatile byte DisplayText[2][RPU_OS_NUM_DIGITS];
 #endif
@@ -601,7 +605,7 @@ void RPU_SetAddressPinsDirection(boolean pinsOutput) {
 
 void RPU_SetDataPinsDirection(boolean pinsOutput) {
   for (int count=0; count<8; count++) {
-    pinMode(22, pinsOutput?OUTPUT:INPUT);
+    pinMode(22+count, pinsOutput?OUTPUT:INPUT);
   }
 }
 
@@ -896,14 +900,15 @@ void WaitClockCycle(int numCycles=1) {
 #error "RPU_OS_HARDWARE_REV >100 requires ATMega2560, check RPU_Config.h and adjust settings"
 #endif
 
-#define RPU_VMA_PIN           40
-#define RPU_RW_PIN            3
-#define RPU_PHI2_PIN          39
-#define RPU_SWITCH_PIN        38
-#define RPU_BUFFER_DISABLE    5
-#define RPU_HALT_PIN          41
-#define RPU_RESET_PIN         42
-#define RPU_DIAGNOSTIC_PIN    44
+#define RPU_VMA_PIN                   40
+#define RPU_RW_PIN                    3
+#define RPU_PHI2_PIN                  39
+#define RPU_SWITCH_PIN                38
+#define RPU_BUFFER_DISABLE            5
+#define RPU_HALT_PIN                  41
+#define RPU_RESET_PIN                 42
+#define RPU_BA_PIN                    43
+#define RPU_DIAGNOSTIC_PIN            44
 #define RPU_DISABLE_PHI_FROM_MPU      7
 #define RPU_DISABLE_PHI_FROM_CPU      6
 #define RPU_BOARD_SEL_0               30
@@ -921,12 +926,12 @@ void RPU_SetAddressPinsDirection(boolean pinsOutput) {
 
 void RPU_SetDataPinsDirection(boolean pinsOutput) {
   for (int count=0; count<8; count++) {
-    pinMode(22, pinsOutput?OUTPUT:INPUT);
+    pinMode(22+count, pinsOutput?OUTPUT:INPUT);
   }
 }
 
 
-// REVISION 101 HARDWARE
+// REVISION 101/102 HARDWARE
 void RPU_DataWrite(int address, byte data) {
   
   // Set data pins to output
@@ -1612,16 +1617,26 @@ void RPU_EnableSolenoidStack() {
  *   Display Handling Functions
  */
 #if (RPU_MPU_ARCHITECTURE<15)
-byte RPU_SetDisplay(int displayNumber, unsigned long value, boolean blankByMagnitude, byte minDigits) {
+byte RPU_SetDisplay(int displayNumber, unsigned long value, boolean blankByMagnitude, byte minDigits, boolean showCommasByMagnitude) {
   if (displayNumber<0 || displayNumber>4) return 0;
 
   byte blank = 0x00;
+  byte commaBit = 0x01 << (2*displayNumber);
 
   for (int count=0; count<RPU_OS_NUM_DIGITS; count++) {
     blank = blank * 2;
     if (value!=0 || count<minDigits) blank |= 1;
+    if (showCommasByMagnitude) {
+      if (value) {
+        if (count==3) DisplayCommas |= commaBit;
+        if (count==6) DisplayCommas |= (commaBit*2);
+      } else {
+        if (count==3) DisplayCommas &= ~(commaBit);
+        if (count==6) DisplayCommas &= ~(commaBit*2);
+      }
+    }
     DisplayDigits[displayNumber][(RPU_OS_NUM_DIGITS-1)-count] = value%10;
-    value /= 10;    
+    value /= 10;
   }
 
   if (blankByMagnitude) DisplayDigitEnable[displayNumber] = blank;
@@ -1833,7 +1848,7 @@ byte RPU_SetDisplayText(int displayNumber, char *text, boolean blankByLength) {
 }
 
 // Architectures with alpha store numbers as 7-seg
-byte RPU_SetDisplay(int displayNumber, unsigned long value, boolean blankByMagnitude, byte minDigits) {
+byte RPU_SetDisplay(int displayNumber, unsigned long value, boolean blankByMagnitude, byte minDigits, boolean showCommasByMagnitude) {
   if (displayNumber<0 || displayNumber>3) return 0;
 
   byte blank = 0x00;
@@ -2028,6 +2043,7 @@ void RPU_ClearVariables() {
     }
     DisplayDigitEnable[displayCount] = 0x00;
   }
+  DisplayCommas = 0x00;
 
   // Turn off all lamp states
   for (int lampBankCounter=0; lampBankCounter<RPU_NUM_LAMP_BANKS; lampBankCounter++) {
@@ -2431,6 +2447,8 @@ volatile int numberOfU10Interrupts = 0;
 volatile int numberOfU11Interrupts = 0;
 volatile byte InsideZeroCrossingInterrupt = 0;
 
+// INTERRUPT SERVICE ROUTINE
+// for ARCH 1 (B/S)
 ISR(TIMER1_COMPA_vect) {    //This is the interrupt request
   // Backup U10A
   byte backupU10A = RPU_DataRead(ADDRESS_U10_A);
@@ -3038,6 +3056,8 @@ unsigned long RPU_InitializeMPUArch1(unsigned long initOptions, byte creditReset
 #elif (RPU_OS_HARDWARE_REV==3)
   (void)creditResetSwitch;
 
+  if (DEBUG_MESSAGES) Serial.write("* Starting Setup for Rev 3\n");
+
   if (initOptions&( RPU_CMD_BOOT_ORIGINAL_IF_CREDIT_RESET | RPU_CMD_BOOT_ORIGINAL_IF_NOT_CREDIT_RESET | 
                     RPU_CMD_AUTODETECT_ARCHITECTURE ) ) {
     retResult |= RPU_RET_OPTION_NOT_SUPPORTED;
@@ -3056,8 +3076,12 @@ unsigned long RPU_InitializeMPUArch1(unsigned long initOptions, byte creditReset
         (!switchStateClosed && (initOptions&RPU_CMD_BOOT_ORIGINAL_IF_NOT_SWITCH_CLOSED)) ) {
     bootToOriginal = true;
   }
-  
+
   if (bootToOriginal) {
+
+    if (DEBUG_MESSAGES) Serial.write("* Asked to boot to original\n");
+    if (DEBUG_MESSAGES) delay(100);
+
     // Let the 680X run 
     pinMode(14, OUTPUT); // Halt
     digitalWrite(14, HIGH);
@@ -3174,10 +3198,24 @@ unsigned long RPU_InitializeMPUArch1(unsigned long initOptions, byte creditReset
 
 #endif  
 
+  if (DEBUG_MESSAGES) {
+    Serial.write("* About to init Arduino ports\n");
+    delay(100);  
+  }
   SetupArduinoPorts();
 
   // Prep the address bus (all lines zero)
+  if (DEBUG_MESSAGES) {
+    Serial.write("* About to data read\n");
+    delay(100);  
+  }
   RPU_DataRead(0);
+
+  if (DEBUG_MESSAGES) {
+    Serial.write("* DataRead(0) done\n");
+    delay(100);  
+  }
+  
   // Set up the PIAs
   InitializeU10PIA();
   InitializeU11PIA();
@@ -3195,6 +3233,12 @@ unsigned long RPU_InitializeMPUArch1(unsigned long initOptions, byte creditReset
   // Reset address bus
   RPU_DataRead(0);
   RPU_ClearVariables();
+
+  if (DEBUG_MESSAGES) {
+    Serial.write("* About to hook interrupts\n");
+    delay(100);  
+  }
+  
   RPU_HookInterrupts();
   RPU_DataRead(0);  // Reset address bus
 
@@ -3238,6 +3282,7 @@ byte BlankingBit[16] = {0x01, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x02, 0x
 volatile byte UpDownPassCounter = 0;
 
 // INTERRUPT HANDLER
+// for ARCH 10 (WMS)
 ISR(TIMER1_COMPA_vect) {    //This is the interrupt request (running at 965.3 Hz)
 
   byte displayControlPortB = RPU_DataRead(PIA_DISPLAY_CONTROL_B);
@@ -3281,22 +3326,49 @@ ISR(TIMER1_COMPA_vect) {    //This is the interrupt request (running at 965.3 Hz
   // Create display data
   byte digit1 = 0x0F, digit2 = 0x0F;
   byte blankingBit = BlankingBit[DisplayStrobe];
+  boolean comma12 = false, comma34 = false;
+
   if (DisplayStrobe==0) {
     if (DisplayBIPDigitEnable&blankingBit) digit1 = DisplayBIPDigits[0];
     if (DisplayCreditDigitEnable&blankingBit) digit2 = DisplayCreditDigits[0];
   } else if (DisplayStrobe<8) {
     if (DisplayDigitEnable[0]&blankingBit) digit1 = DisplayDigits[0][DisplayStrobe-1];
     if (DisplayDigitEnable[2]&blankingBit) digit2 = DisplayDigits[2][DisplayStrobe-1];
+
+    if (DisplayStrobe==1) {
+      if (DisplayCommas&0x02) comma12 = true;
+      if (DisplayCommas&0x20) comma34 = true;  
+    } else if (DisplayStrobe==4) {
+      if (DisplayCommas&0x01) comma12 = true;
+      if (DisplayCommas&0x10) comma34 = true;  
+    }
+    
   } else if (DisplayStrobe==8) {
     if (DisplayBIPDigitEnable&blankingBit) digit1 = DisplayBIPDigits[1];
     if (DisplayCreditDigitEnable&blankingBit) digit2 = DisplayCreditDigits[1];
   } else {
     if (DisplayDigitEnable[1]&blankingBit) digit1 = DisplayDigits[1][DisplayStrobe-9];
     if (DisplayDigitEnable[3]&blankingBit) digit2 = DisplayDigits[3][DisplayStrobe-9];
+
+    if (DisplayStrobe==9) {
+      if (DisplayCommas&0x08) comma12 = true;
+      if (DisplayCommas&0x80) comma34 = true;  
+    } else if (DisplayStrobe==12) {
+      if (DisplayCommas&0x04) comma12 = true;
+      if (DisplayCommas&0x40) comma34 = true;  
+    }
+  
   }
   // Show current display digit
   RPU_DataWrite(PIA_DISPLAY_PORT_A, BoardLEDs|DisplayStrobe);
   RPU_DataWrite(PIA_DISPLAY_PORT_B, digit1*16 | (digit2&0x0F));
+
+  // show commas
+  byte commaByte = RPU_DataRead(PIA_SOUND_COMMA_PORT_B) & 0x3F;
+  if (comma12) commaByte |= 0x80;
+  if (comma34) commaByte |= 0x40;
+  RPU_DataWrite(PIA_SOUND_COMMA_PORT_B, commaByte);
+  
 #else
   // Create display data
   byte digit1 = 0x0F, digit2 = 0x0F;
@@ -3428,7 +3500,7 @@ ISR(TIMER1_COMPA_vect) {    //This is the interrupt request (running at 965.3 Hz
 #elif defined(RPU_OS_USE_WTYPE_2_SOUND)
     unsigned short soundOn = PullFirstFromSoundStack();
     if (soundOn!=SOUND_STACK_EMPTY) {
-      RPU_DataWrite(PIA_SOUND_COMMA_PORT_A, (~soundOn) & 0x7F);      
+      RPU_DataWrite(PIA_SOUND_COMMA_PORT_A, (~soundOn) & 0x7F);
     } else {
       RPU_DataWrite(PIA_SOUND_COMMA_PORT_A, 0x7F);
     }
@@ -3498,6 +3570,11 @@ boolean CheckCreditResetSwitchArch10(byte creditResetButton) {
 
   // Read switch input
   byte switchValues = RPU_DataRead(PIA_SWITCH_PORT_A);
+  if (DEBUG_MESSAGES) {
+    char buf[128];
+    sprintf(buf, "* switch return = 0x%02X\n", switchValues);
+    Serial.write(buf);
+  }
   RPU_DataWrite(PIA_SWITCH_PORT_B, 0);
 
   if (switchValues & returnLine) return true;
@@ -3523,6 +3600,8 @@ unsigned long RPU_InitializeMPUArch10(unsigned long initOptions, byte creditRese
   digitalWrite(RPU_HALT_PIN, 0);  
   pinMode(RPU_RESET_PIN, OUTPUT); 
   digitalWrite(RPU_RESET_PIN, 0); 
+  pinMode(RPU_BA_PIN, OUTPUT);
+  digitalWrite(RPU_BA_PIN, 0);
 
   // Determine if we can detect a 
   // 6800 or 6802/8 and possibly override
@@ -3570,6 +3649,11 @@ unsigned long RPU_InitializeMPUArch10(unsigned long initOptions, byte creditRese
         (!switchStateClosed && (initOptions&RPU_CMD_BOOT_ORIGINAL_IF_NOT_SWITCH_CLOSED))  ||
         (creditResetButtonHit && (initOptions&RPU_CMD_BOOT_ORIGINAL_IF_CREDIT_RESET))  ||
         (!creditResetButtonHit && (initOptions&RPU_CMD_BOOT_ORIGINAL_IF_NOT_CREDIT_RESET)) ) {
+    if (DEBUG_MESSAGES) {
+      char buf[128];
+      sprintf(buf, "* Booting to original (switch=%d, CR=%d)\n", switchStateClosed, creditResetButtonHit);
+      Serial.write(buf);
+    }
     bootToOriginal = true;
   }
 
@@ -3582,6 +3666,7 @@ unsigned long RPU_InitializeMPUArch10(unsigned long initOptions, byte creditRese
     pinMode(RPU_PHI2_PIN, INPUT); // CLOCK
     pinMode(RPU_VMA_PIN, INPUT); // VMA
     pinMode(RPU_RW_PIN, INPUT); // R/W
+    pinMode(RPU_BA_PIN, INPUT);
 
 #if (RPU_OS_HARDWARE_REV==102)
     // We need to make sure the clock direction
@@ -3612,9 +3697,15 @@ unsigned long RPU_InitializeMPUArch10(unsigned long initOptions, byte creditRese
     digitalWrite(RPU_RESET_PIN, 1);
 
     if (initOptions&RPU_CMD_INIT_AND_RETURN_EVEN_IF_ORIGINAL_CHOSEN) {
+      if (DEBUG_MESSAGES) { 
+        Serial.write("* original requested\n");
+      }
       retResult |= RPU_RET_ORIGINAL_CODE_REQUESTED;
       return retResult;
     } else {
+      if (DEBUG_MESSAGES) {
+        Serial.write("* original requested, halting\n");      
+      }
       while (1);
     }
   }
@@ -3657,21 +3748,6 @@ void RPU_Update(unsigned long currentTime) {
   RPU_UpdateTimedSoundStack(currentTime);
 #endif
 
-#if (DEBUG_MESSAGES==1)
-  if (DEBUG_MESSAGES) {
-    if (currentTime>(LastSwitchReport+1000)) {
-      LastSwitchReport = currentTime;
-      char buf[128];
-      Serial.write("Switches = ");
-      for (byte count=0; count<8; count++) {
-        sprintf(buf, "0x%02X", SwitchesNow[count]);
-        Serial.write(buf);
-        if (count<7) Serial.write(", ");
-        else Serial.write("\n");
-      }
-    }
-  }
-#endif
 }
 
 

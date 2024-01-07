@@ -1542,6 +1542,7 @@ byte AttractLastHeadMode = 255;
 byte AttractLastPlayfieldMode = 255;
 byte InAttractMode = false;
 
+byte LastSolPhase= 0;
 
 int RunAttractMode(int curState, boolean curStateChanged) {
 
@@ -1571,10 +1572,13 @@ int RunAttractMode(int curState, boolean curStateChanged) {
 //    RPU_SetLampState(LAMP_HEAD_3_PLAYERS, 0);
 //    RPU_SetLampState(LAMP_HEAD_4_PLAYERS, 0);
 
+    // If this machine has a saucer, clear it in attract mode
+/*    
     if (RPU_ReadSingleSwitchState(SW_SAUCER)) {
       RPU_PushToSolenoidStack(SOL_SAUCER, 16, true);
     }
-    
+*/    
+
   }
 
   // Some machines have a kicker to move the ball
