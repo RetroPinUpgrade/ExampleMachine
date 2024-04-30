@@ -3173,6 +3173,24 @@ unsigned long RPU_InitializeMPUArch1(unsigned long initOptions, byte creditReset
     bootToOriginal = true;
   }
 
+#if (RPU_OS_HARDWARE_REV==102)
+  // We need to make sure the clock direction
+  // buffers are set the correct direction
+  if (UsesM6800Processor) {
+    pinMode(RPU_DISABLE_PHI_FROM_MPU, OUTPUT);
+    digitalWrite(RPU_DISABLE_PHI_FROM_MPU, 0);
+    pinMode(RPU_DISABLE_PHI_FROM_CPU, OUTPUT);
+    digitalWrite(RPU_DISABLE_PHI_FROM_CPU, 1);
+    retResult |= RPU_RET_6800_DETECTED;
+  } else {
+    pinMode(RPU_DISABLE_PHI_FROM_MPU, OUTPUT);
+    digitalWrite(RPU_DISABLE_PHI_FROM_MPU, 1);
+    pinMode(RPU_DISABLE_PHI_FROM_CPU, OUTPUT);
+    digitalWrite(RPU_DISABLE_PHI_FROM_CPU, 0);
+    retResult |= RPU_RET_6802_OR_8_DETECTED;
+  }    
+#endif
+
   if (bootToOriginal) {
     // If the options guide us to original code, boot to original
     pinMode(RPU_BUFFER_DISABLE, OUTPUT); // IRQ
@@ -3183,23 +3201,6 @@ unsigned long RPU_InitializeMPUArch1(unsigned long initOptions, byte creditReset
     pinMode(RPU_VMA_PIN, INPUT); // VMA
     pinMode(RPU_RW_PIN, INPUT); // R/W
 
-#if (RPU_OS_HARDWARE_REV==102)
-    // We need to make sure the clock direction
-    // buffers are set the correct direction
-    if (UsesM6800Processor) {
-      pinMode(RPU_DISABLE_PHI_FROM_MPU, OUTPUT);
-      digitalWrite(RPU_DISABLE_PHI_FROM_MPU, 0);
-      pinMode(RPU_DISABLE_PHI_FROM_CPU, OUTPUT);
-      digitalWrite(RPU_DISABLE_PHI_FROM_CPU, 1);
-      retResult |= RPU_RET_6800_DETECTED;
-    } else {
-      pinMode(RPU_DISABLE_PHI_FROM_MPU, OUTPUT);
-      digitalWrite(RPU_DISABLE_PHI_FROM_MPU, 1);
-      pinMode(RPU_DISABLE_PHI_FROM_CPU, OUTPUT);
-      digitalWrite(RPU_DISABLE_PHI_FROM_CPU, 0);
-      retResult |= RPU_RET_6802_OR_8_DETECTED;
-    }    
-#endif
     // Set all the pins to input so they'll stay out of the way
     RPU_SetDataPinsDirection(RPU_PINS_INPUT);
     RPU_SetAddressPinsDirection(RPU_PINS_INPUT);
