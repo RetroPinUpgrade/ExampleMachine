@@ -115,6 +115,7 @@ public:
   bool getVersion(char *pDst, int len);
   int getNumTracks(void);
   bool isTrackPlaying(int trk);
+  int getPlayingTrack(int voiceNum);
   void masterGain(int gain);
   void stopAllTracks(void);
   void resumeAllInSync(void);
@@ -167,6 +168,7 @@ class AudioHandler
     void SetNotificationsVolume(byte s_volume);
     void SetMusicVolume(byte s_volume);
     void SetMusicDuckingGain(byte s_ducking);
+    void SetSoundFXDuckingGain(byte s_ducking);
 
     boolean PlayBackgroundSoundtrack(AudioSoundtrack *soundtrackArray, unsigned short numSoundtrackEntries, unsigned long currentTime, boolean randomOrder=true);
     boolean PlayBackgroundSong(unsigned short trackIndex, boolean loopTrack=true);
@@ -194,7 +196,8 @@ class AudioHandler
     int soundFXGain;
     int notificationsGain;
     int musicGain;    
-    int ducking;
+    int musicDucking;
+    int soundFXDucking;
     byte voiceNotificationStackFirst;
     byte voiceNotificationStackLast;
     byte voiceNotificationPriorityStack[VOICE_NOTIFICATION_STACK_SIZE];
@@ -228,6 +231,7 @@ class AudioHandler
 
     void InitSB300Registers();
     void PlaySB300StartupBeep();
+    void DuckCurrentSoundEffects();
 
     int SpaceLeftOnNotificationStack();
     void ClearSoundQueue();

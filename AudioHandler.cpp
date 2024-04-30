@@ -215,6 +215,14 @@ bool fResult = false;
   return fResult;
 }
 
+
+int wavTrigger::getPlayingTrack(int voiceNum) {
+  if (voiceNum>=MAX_NUM_VOICES || voiceNum<0) return 0xFFFF;
+  return (voiceTable[voiceNum]);
+}
+
+
+
 // **************************************************************
 void wavTrigger::masterGain(int gain) {
 
@@ -502,7 +510,8 @@ AudioHandler::AudioHandler() {
   voiceNotificationStackLast = 0;
   currentNotificationPriority = 0;
   currentNotificationPlaying = INVALID_SOUND_INDEX;
-  ducking = 20;
+  musicDucking = 20;
+  soundFXDucking = 20;
 
   for (int count=0; count<NUMBER_OF_SONGS_REMEMBERED; count++) lastSongsPlayed[count] = BACKGROUND_TRACK_NONE;
 
@@ -562,9 +571,12 @@ void AudioHandler::SetMusicVolume(byte s_volume) {
 }
 
 void AudioHandler::SetMusicDuckingGain(byte s_ducking) {
-  ducking = s_ducking;
+  musicDucking = s_ducking;
 }
 
+void AudioHandler::SetSoundFXDuckingGain(byte s_ducking) {
+  soundFXDucking = s_ducking;
+}
 
 
 boolean AudioHandler::StopSound(unsigned short soundIndex) {
@@ -670,6 +682,23 @@ byte AudioHandler::GetTopNotificationPriority() {
   return topPriorityFound;
 }
 
+void AudioHandler::DuckCurrentSoundEffects() {
+
+  // We can't duck if we don't have bi-directional communication
+  // So <=3 revs have to return
+  if (RPU_OS_HARDWARE_REV<=3) return;
+  
+#if defined (RPU_OS_USE_WAV_TRIGGER) || defined (RPU_OS_USE_WAV_TRIGGER_1p3)
+  for (int count=0; count<MAX_NUM_VOICES; count++) {
+    int trackNum = wTrig.getPlayingTrack(count);
+    if (trackNum!=((int)0xFFFF) && trackNum!=((int)currentBackgroundTrack) && trackNum!=((int)currentNotificationPlaying)) {
+      // This is a sound effect that needs to be ducked
+      wTrig.trackFade(trackNum, soundFXGain - soundFXDucking, 500, 0);
+    }
+  }
+#endif  
+  
+}
 
 
 
@@ -684,8 +713,9 @@ boolean AudioHandler::QueuePrioritizedNotification(unsigned short notificationIn
   // If there's nothing playing, we can play it now
   if (currentNotificationPlaying == INVALID_SOUND_INDEX) {
     if (currentBackgroundTrack != BACKGROUND_TRACK_NONE) {
-      wTrig.trackFade(currentBackgroundTrack, musicGain - ducking, 500, 0);
+      wTrig.trackFade(currentBackgroundTrack, musicGain - musicDucking, 500, 0);
     }
+    DuckCurrentSoundEffects();
     if (notificationLength) nextVoiceNotificationPlayTime = currentTime + (unsigned long)(notificationLength);
     else nextVoiceNotificationPlayTime = 0;
 
@@ -764,8 +794,9 @@ boolean AudioHandler::ServiceNotificationQueue(unsigned long currentTime) {
 
     if (nextNotification != VOICE_NOTIFICATION_STACK_EMPTY) {
       if (currentBackgroundTrack != BACKGROUND_TRACK_NONE) {
-        wTrig.trackFade(currentBackgroundTrack, musicGain - ducking, 500, 0);
+        wTrig.trackFade(currentBackgroundTrack, musicGain - musicDucking, 500, 0);
       }
+      DuckCurrentSoundEffects();
       if (nextDuration!=0) nextVoiceNotificationPlayTime = currentTime + (unsigned long)(nextDuration);
       else nextVoiceNotificationPlayTime = 0;
       wTrig.trackPlayPoly(nextNotification);
@@ -860,6 +891,10 @@ boolean AudioHandler::PlaySound(unsigned short soundIndex, byte audioType, byte 
 
   boolean soundPlayed = false;
   int gain = soundFXGain;
+  if (currentNotificationPlaying!=INVALID_SOUND_INDEX) {
+    // reduce gain (by ducking amount) if there's a notification playing
+    gain -= soundFXDucking;
+  }
   if (overrideVolume!=0xFF) gain = ConvertVolumeSettingToGain(overrideVolume);
 
   if (audioType==AUDIO_PLAY_TYPE_CHIMES) {

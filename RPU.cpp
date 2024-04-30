@@ -1621,11 +1621,18 @@ byte RPU_SetDisplay(int displayNumber, unsigned long value, boolean blankByMagni
   if (displayNumber<0 || displayNumber>4) return 0;
 
   byte blank = 0x00;
+#if (RPU_MPU_ARCHITECTURE>=13)    
   byte commaBit = 0x01 << (2*displayNumber);
+  if (!showCommasByMagnitude) {
+    DisplayCommas &= ~(commaBit | (commaBit*2));
+  }
+#endif
 
   for (int count=0; count<RPU_OS_NUM_DIGITS; count++) {
     blank = blank * 2;
     if (value!=0 || count<minDigits) blank |= 1;
+
+#if (RPU_MPU_ARCHITECTURE>=13)    
     if (showCommasByMagnitude) {
       if (value) {
         if (count==3) DisplayCommas |= commaBit;
@@ -1635,6 +1642,9 @@ byte RPU_SetDisplay(int displayNumber, unsigned long value, boolean blankByMagni
         if (count==6) DisplayCommas &= ~(commaBit*2);
       }
     }
+#else
+    (void)showCommasByMagnitude;
+#endif    
     DisplayDigits[displayNumber][(RPU_OS_NUM_DIGITS-1)-count] = value%10;
     value /= 10;
   }
@@ -1773,6 +1783,13 @@ void RPU_SetDisplayMatch(int value, boolean displayOn, boolean showBothDigits) {
 //   bit=   b0 b1 b2 b3 b4 b5
 void RPU_SetDisplayBlank(int displayNumber, byte bitMask) {
   if (displayNumber<0 || displayNumber>4) return;
+
+#if (RPU_MPU_ARCHITECTURE>=13) 
+  if (bitMask==0x00) {   
+    byte commaBit = 0x01 << (2*displayNumber);
+    DisplayCommas &= ~(commaBit | (commaBit*2));
+  }
+#endif
     
   DisplayDigitEnable[displayNumber] = bitMask;
 }
@@ -2043,7 +2060,9 @@ void RPU_ClearVariables() {
     }
     DisplayDigitEnable[displayCount] = 0x00;
   }
+#if (RPU_MPU_ARCHITECTURE>=13)  
   DisplayCommas = 0x00;
+#endif
 
   // Turn off all lamp states
   for (int lampBankCounter=0; lampBankCounter<RPU_NUM_LAMP_BANKS; lampBankCounter++) {
@@ -2836,7 +2855,7 @@ void InterruptService3() {
         if (numberOfU10Interrupts%DimDivisor1) lampOutput |= (LampDim1[lampByteCount] * nibbleOffset);
         if (numberOfU10Interrupts%DimDivisor2) lampOutput |= (LampDim2[lampByteCount] * nibbleOffset);
 
-        RPU_DataWrite(ADDRESS_U10_A, lampOutput & 0xF0);
+        RPU_DataWrite(ADDRESS_U10_A, lampOutput | 0x0F);
 #ifdef RPU_SLOW_DOWN_LAMP_STROBE      
         delayMicroseconds(2);
 #endif      

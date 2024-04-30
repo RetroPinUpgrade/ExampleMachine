@@ -77,12 +77,6 @@ unsigned long RPU_InitializeMPU(
 void RPU_SetupGameSwitches(int s_numSwitches, int s_numPrioritySwitches, PlayfieldAndCabinetSwitch *s_gameSwitchArray);
 byte RPU_GetDipSwitches(byte index);
 
-// EEProm Helper Functions
-byte RPU_ReadByteFromEEProm(unsigned short startByte);
-void RPU_WriteByteToEEProm(unsigned short startByte, byte value);
-unsigned long RPU_ReadULFromEEProm(unsigned short startByte, unsigned long defaultValue=0);
-void RPU_WriteULToEEProm(unsigned short startByte, unsigned long value);
-
 //   Swtiches
 byte RPU_PullFirstFromSwitchStack();
 boolean RPU_ReadSingleSwitchState(byte switchNum);
@@ -165,12 +159,19 @@ void RPU_PlayW11Music(byte songNum);
 #endif
 
 
-//   General
+//   General Utility
 byte RPU_DataRead(int address);
 void RPU_Update(unsigned long currentTime);
 #if RPU_MPU_ARCHITECTURE>9
 void RPU_SetBoardLEDs(boolean LED1, boolean LED2, byte BCDValue = 0xFF);
 #endif
+
+// EEProm Helper Functions
+byte RPU_ReadByteFromEEProm(unsigned short startByte);
+void RPU_WriteByteToEEProm(unsigned short startByte, byte value);
+unsigned long RPU_ReadULFromEEProm(unsigned short startByte, unsigned long defaultValue=0);
+void RPU_WriteULToEEProm(unsigned short startByte, unsigned long value);
+
 
 #ifdef RPU_CPP_FILE
   int NumGameSwitches = 0;
