@@ -33,7 +33,8 @@
 // Hardware Rev 100 (different order of magnitude because it's a different approach) plugs into the CPU socket
 // Hardware Rev 101 - first RPU CPU interposer release board
 // Hardware Rev 102 - second RPU (with display and WIFI socket)
-#define RPU_OS_HARDWARE_REV   4
+// Hardware Rev 200 - RPU on System Alpha
+#define RPU_OS_HARDWARE_REV   3
 
 // Available Architectures (0-9 is for B/S Boards, 10-19 is for W)
 //  RPU_MPU_ARCHITECTURE 1 = -17, -35, 100, 200, or compatible
@@ -61,13 +62,27 @@
 //#define RPU_OS_DISABLE_CPC_FOR_SPACE
 //#define RPU_OS_USE_AUX_LAMPS
 //#define RPU_OS_USE_7_DIGIT_DISPLAYS
+//#define RPU_OS_USE_6_DIGIT_CREDIT_DISPLAY_WITH_7_DIGIT_DISPLAYS
 //#define RPU_USE_EXTENDED_SWITCHES_ON_PB4
 //#define RPU_USE_EXTENDED_SWITCHES_ON_PB7
 //#define RPU_OS_USE_WTYPE_1_SOUND
 //#define RPU_OS_USE_WTYPE_2_SOUND
 //#define RPU_OS_USE_W11_SOUND
+#define RPU_STREAMLINED_IMMEDIATE_SOLENOIDS
+#define RPU_NUMBER_OF_PLAYERS_ALLOWED       4
+#define RPU_NUMBER_OF_PLAYER_DISPLAYS       4
+//#define RPU_BALLY_SIXTH_DISPLAY
+//#define RPU_SIMPLIFY_DISPLAY_FOR_7VOLUTION
+//#define RPU_OS_USE_ACCESSORY_LAMP_BOARD 
 
+// For Bally/Stern MPUs, using multiplexed lines
+// allows for sending 7 digits without updating 
+// wiring (requires XPIN 7Volution or other decoding displays)
+// This MUST be used with RPU_OS_USE_7_DIGIT_DISPLAYS or
+// else if won't do anything
+//#define RPU_USE_MULTIPLEXED_DISPLAY_DIGIT_LINES
 
+//#define LISYOutputSerial Serial3 
 
 
 #if (RPU_MPU_ARCHITECTURE==1) 
@@ -91,7 +106,7 @@
 //  40            381 Hz
 //  35            434 Hz     (This would probably be good for 7-digit displays)
 //  34            446.4 Hz      
-#define RPU_OS_SOFTWARE_DISPLAY_INTERRUPT_INTERVAL  48  
+#define RPU_OS_SOFTWARE_DISPLAY_INTERRUPT_INTERVAL  45  
 //#define RPU_OS_ADJUSTABLE_DISPLAY_INTERRUPT
 
 #ifdef RPU_OS_USE_6_DIGIT_CREDIT_DISPLAY_WITH_7_DIGIT_DISPLAYS

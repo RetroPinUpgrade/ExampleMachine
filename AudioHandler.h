@@ -172,6 +172,10 @@ class AudioHandler
 
     boolean PlayBackgroundSoundtrack(AudioSoundtrack *soundtrackArray, unsigned short numSoundtrackEntries, unsigned long currentTime, boolean randomOrder=true);
     boolean PlayBackgroundSong(unsigned short trackIndex, boolean loopTrack=true);
+    unsigned short GetBackgroundSong() { 
+      if (musicStopped) return BACKGROUND_TRACK_NONE;
+      return currentBackgroundTrack; 
+    }
 
     boolean PlaySound(unsigned short soundIndex, byte audioType, byte overrideVolume=0xFF);
     boolean FadeSound(unsigned short soundIndex, int fadeGain, int numMilliseconds, boolean stopTrack);
@@ -203,6 +207,7 @@ class AudioHandler
     byte voiceNotificationPriorityStack[VOICE_NOTIFICATION_STACK_SIZE];
     byte currentNotificationPriority;
     boolean soundtrackRandomOrder;
+    boolean musicStopped;
     unsigned int currentNotificationPlaying;
     unsigned int voiceNotificationNumStack[VOICE_NOTIFICATION_STACK_SIZE];
     unsigned int voiceNotificationDuration[VOICE_NOTIFICATION_STACK_SIZE];

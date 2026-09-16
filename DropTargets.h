@@ -8,6 +8,7 @@
 #define DROP_TARGET_TYPE_STRN_2         2   // clearing solenoids for individual targets, one switch per target (aka memory drops)
 #define DROP_TARGET_TYPE_WLLMS_1        3   // no solenoids to drop individual targets, one switch per target (momentary), switch for all targets down
 #define DROP_TARGET_TYPE_WLLMS_2        4   // no solenoids to drop/reset individual, one switch per target
+#define DROP_TARGET_TYPE_HOMEPIN_1      5   // no solenoids to drop individual targets, one switch per target
 
 class DropTargetBank
 {
@@ -20,7 +21,7 @@ class DropTargetBank
     byte HandleDropTargetHit(byte switchNum);
     byte CheckIfBankCleared();
     void Update(unsigned long currentTime);
-    void ResetDropTargets(unsigned long timeToReset, boolean ignoreQuickDrops=false);
+    void ResetDropTargets(unsigned long timeToReset, boolean ignoreQuickDrops=false, boolean disableOverride=false);
     byte GetStatus(boolean readSwitches = true);
 
   private:
@@ -146,7 +147,7 @@ byte DropTargetBank::GetStatus(boolean readSwitches) {
 }
 
 
-void DropTargetBank::ResetDropTargets(unsigned long timeToReset, boolean ignoreQuickDrops) {
+void DropTargetBank::ResetDropTargets(unsigned long timeToReset, boolean ignoreQuickDrops, boolean disableOverride) {
   bankCleared = false;
   targetsHitInOrder = true;
   numTargetsInOrder = 0;
@@ -158,7 +159,7 @@ void DropTargetBank::ResetDropTargets(unsigned long timeToReset, boolean ignoreQ
 
   if (numSolenoids) {
     for (byte count=0; count<numSolenoids; count++) {
-      if (solArray[count]!=0xFF) RPU_PushToTimedSolenoidStack(solArray[count], solenoidOnTime, timeToReset);
+      if (solArray[count]!=0xFF) RPU_PushToTimedSolenoidStack(solArray[count], solenoidOnTime, timeToReset, disableOverride);
     }
     targetResetTime = timeToReset + 100; // This could be based on solenoidOnTime, but that's not currently set in ms
     if (ignoreQuickDrops) {
