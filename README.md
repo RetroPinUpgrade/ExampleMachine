@@ -13,3 +13,6 @@ Generic early solid state pinball implementation (will run on -17, -35, 100, 200
 
 ## Sound files
 [Sound file ZIP](https://drive.google.com/file/d/1lXaLpyJ7MR6NXaG32L5Z4EdiXXQQEJUx/view?usp=sharing)
+
+## Lamp animations
+You can generate lamp animations with a tool [here](https://www.pinballrefresh.com/animation-generator)
