@@ -462,6 +462,9 @@ void ReadStoredParameters() {
     ScoreAwardReplay = ReadSetting(EEPROM_AWARD_OVERRIDE_BYTE, 0x03, 0x07);
     BallsPerGame = ReadSetting(EEPROM_BALLS_OVERRIDE_BYTE, 3, 10);
     ScrollingScores = ReadSetting(EEPROM_SCROLLING_SCORES_BYTE, true, true);
+#ifdef RPU_SIMPLIFY_DISPLAY_FOR_7VOLUTION
+    ScrollingScores = false;
+#endif
     MatchFeature = ReadSetting(EEPROM_MATCH_FEATURE_BYTE, true, true);
 
     CPCSelection[0] = ReadSetting(RPU_CPC_CHUTE_1_SELECTION_BYTE, 4, 8);
@@ -579,7 +582,7 @@ unsigned short SolenoidConvertDisplayNumberToIndex(byte displayNumber) {
     case 16: return OPERATOR_MENU_VALUE_UNUSED;
     case 17: return OPERATOR_MENU_VALUE_UNUSED; // unused 0x1000
     case 18: return OPERATOR_MENU_VALUE_UNUSED; // unused 0x8000
-    case 19: return 0x2000; // Topper
+    case 19: return 0x2000; // Coin
     default: return OPERATOR_MENU_VALUE_OUT_OF_RANGE;
   }
 }
@@ -605,10 +608,10 @@ byte SolenoidConvertDisplayNumberToTestStrength(byte displayNumber) {
     case 13: return BallServeSolenoidStrength;
     case 14: return 4;
     case 15: return 4;
-    case 16: return OPERATOR_MENU_VALUE_UNUSED;
+    case 16: return 4;
     case 17: return OPERATOR_MENU_VALUE_UNUSED;
     case 18: return OPERATOR_MENU_VALUE_UNUSED;
-    case 19: return OPERATOR_MENU_VALUE_UNUSED; 
+    case 19: return 4; 
     default: return OPERATOR_MENU_VALUE_OUT_OF_RANGE;
   }
 }
@@ -1022,7 +1025,12 @@ void SetBallSave(unsigned long duration, byte numberOfSaves = 0xFF, boolean addT
 
 
 
-
+////////////////////////////////////////////////////////////////////////////
+//
+//  Operator Menu
+//    
+//
+////////////////////////////////////////////////////////////////////////////
 #define SOUND_EFFECT_OM_CPC_VALUES                  180
 #define SOUND_EFFECT_OM_CRB_VALUES                  210
 #define SOUND_EFFECT_OM_DIFFICULTY_VALUES           220
@@ -2987,11 +2995,11 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
   unsigned long lastBallFirstSwitchHitTime = BallFirstSwitchHitTime;
 
   while ( (switchHit = RPU_PullFirstFromSwitchStack()) != SWITCH_STACK_EMPTY ) {
-    returnState = HandleSystemSwitches(curState, switchHit);
+    returnState = HandleSystemSwitches(returnState, switchHit);
     if (NumTiltWarnings <= MaxTiltWarnings) HandleGamePlaySwitches(switchHit);
   }
 
-  if (CreditResetPressStarted) {
+if (CreditResetPressStarted) {
     if (CurrentBallInPlay < 2) {
       // If we haven't finished the first ball, we can add players
       AddPlayer();

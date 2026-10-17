@@ -124,6 +124,12 @@ volatile byte LampStates[RPU_NUM_LAMP_BANKS], LampDim1[RPU_NUM_LAMP_BANKS], Lamp
 volatile byte LampFlashPeriod[RPU_MAX_LAMPS];
 byte DimDivisor1 = 2;
 byte DimDivisor2 = 3;
+#if defined(RPU_OS_USE_LAMP_OVERLAYS)
+volatile boolean UseLampsOnOverlay = false;
+volatile boolean UseLampsOffOverlay = false;
+volatile byte LampsOnOverlay[RPU_NUM_LAMP_BANKS];
+volatile byte LampsOffOverlay[RPU_NUM_LAMP_BANKS];
+#endif
 
 #if (RPU_OS_HARDWARE_REV==200)
 volatile byte OldLampStates[RPU_NUM_LAMP_BANKS];
@@ -2280,6 +2286,75 @@ void RPU_TurnOffAllLamps() {
 }
 
 
+#if defined(RPU_OS_USE_LAMP_OVERLAYS)
+void RPU_ClearLampsOnOverlay() {
+  UseLampsOnOverlay = false;
+  for (byte count=0; count<RPU_NUM_LAMP_BANKS; count++) {
+    LampsOnOverlay[count] = 0xFF;
+  }
+}
+void RPU_ClearLampsOffOverlay() {
+  UseLampsOffOverlay = false;
+  for (byte count=0; count<RPU_NUM_LAMP_BANKS; count++) {
+    LampsOffOverlay[count] = 0x00;
+  }
+}
+
+void RPU_AddLampToOverlay(boolean lampsOnOverlay, int lampNum) {
+  if (lampNum >= RPU_MAX_LAMPS || lampNum < 0) return;
+  byte lampRow = lampNum % 8;
+  byte lampCol = lampNum / 8;
+  byte lampBit = BitShiftValues[lampRow];
+
+  if (lampsOnOverlay) {
+    LampsOnOverlay[lampCol] &= ~lampBit;
+  } else {
+    LampsOffOverlay[lampCol] |= lampBit;
+  }
+}
+
+void RPU_RemoveLampFromOverlay(boolean lampsOnOverlay, int lampNum) {
+  if (lampNum >= RPU_MAX_LAMPS || lampNum < 0) return;
+  byte lampRow = lampNum % 8;
+  byte lampCol = lampNum / 8;
+  byte lampBit = BitShiftValues[lampRow];
+
+  if (lampsOnOverlay) {
+    LampsOnOverlay[lampCol] |= lampBit;
+  } else {
+    LampsOffOverlay[lampCol] &= ~lampBit;
+  }
+}
+
+void RPU_AddLampByteToOverlay(boolean lampsOnOverlay, byte lampByte, byte lampValues) {
+  if (lampByte>=RPU_NUM_LAMP_BANKS) return;
+
+  if (lampsOnOverlay) {
+    LampsOnOverlay[lampByte] &= ~lampValues;
+  } else {
+    LampsOffOverlay[lampByte] |= lampValues;
+  }
+}
+
+void RPU_RemoveLampByteFromOverlay(boolean lampsOnOverlay, byte lampByte, byte lampValues) {
+  if (lampByte>=RPU_NUM_LAMP_BANKS) return;
+
+  if (lampsOnOverlay) {
+    LampsOnOverlay[lampByte] |= lampValues;
+  } else {
+    LampsOffOverlay[lampByte] &= ~lampValues;
+  }
+}
+
+void RPU_ApplyLampsOnOverlay() {
+  UseLampsOnOverlay = true;
+}
+void RPU_ApplyLampsOffOverlay() {
+  UseLampsOffOverlay = true;
+}
+#endif
+
+
 
 /******************************************************
  * 
@@ -2392,6 +2467,11 @@ void RPU_ClearVariables() {
     TimedSoundStack[count].soundNumber = 0;
     TimedSoundStack[count].numPushes = 0;
   }
+#endif
+
+#if defined(RPU_OS_USE_LAMP_OVERLAYS)
+  RPU_ClearLampsOnOverlay();
+  RPU_ClearLampsOffOverlay();
 #endif
 
 }
@@ -3134,14 +3214,21 @@ void InterruptService3() {
         delayMicroseconds(2);
 #endif
 
+        byte curLampByte = LampStates[lampByteCount];
+        // Every other time through the cycle, we OR in the dim variable
+        // in order to dim those lights
+        if (numberOfU10Interrupts % DimDivisor1) curLampByte |= (LampDim1[lampByteCount]);
+        if (numberOfU10Interrupts % DimDivisor2) curLampByte |= (LampDim2[lampByteCount]);
+
+#if defined(RPU_OS_USE_LAMP_OVERLAYS)
+        if (UseLampsOffOverlay) curLampByte |= LampsOffOverlay[lampByteCount];
+        if (UseLampsOnOverlay) curLampByte &= LampsOnOverlay[lampByteCount];
+#endif
+
         // Use the inhibit lines to set the actual data to the lamp SCRs
         // (here, we don't care about the lower nibble because the address was already latched)
         byte nibbleOffset = (nibbleCount) ? 1 : 16;
-        byte lampOutput = (LampStates[lampByteCount] * nibbleOffset);
-        // Every other time through the cycle, we OR in the dim variable
-        // in order to dim those lights
-        if (numberOfU10Interrupts % DimDivisor1) lampOutput |= (LampDim1[lampByteCount] * nibbleOffset);
-        if (numberOfU10Interrupts % DimDivisor2) lampOutput |= (LampDim2[lampByteCount] * nibbleOffset);
+        byte lampOutput = (curLampByte * nibbleOffset);
 
         RPU_DataWrite(ADDRESS_U10_A, lampOutput | 0x0F);
 #ifdef RPU_SLOW_DOWN_LAMP_STROBE
@@ -3166,11 +3253,19 @@ void InterruptService3() {
       for (byte nibbleCount = 0; nibbleCount < 2; nibbleCount++) {
         if (lampByteCount == 7) nibbleCount = 1; // skip the first nibble of byte 7 because it belongs to primary lamps
         byte nibbleOffset = (nibbleCount) ? 1 : 16;
-        byte lampOutput = (LampStates[lampByteCount] * nibbleOffset);
+
+        byte curLampByte = LampStates[lampByteCount];
         // Every other time through the cycle, we OR in the dim variable
         // in order to dim those lights
-        if (numberOfU10Interrupts % DimDivisor1) lampOutput |= (LampDim1[lampByteCount] * nibbleOffset);
-        if (numberOfU10Interrupts % DimDivisor2) lampOutput |= (LampDim2[lampByteCount] * nibbleOffset);
+        if (numberOfU10Interrupts % DimDivisor1) curLampByte |= (LampDim1[lampByteCount]);
+        if (numberOfU10Interrupts % DimDivisor2) curLampByte |= (LampDim2[lampByteCount]);
+
+#if defined(RPU_OS_USE_LAMP_OVERLAYS)
+        if (UseLampsOffOverlay) curLampByte |= LampsOffOverlay[lampByteCount];
+        if (UseLampsOnOverlay) curLampByte &= LampsOnOverlay[lampByteCount];
+#endif
+
+        byte lampOutput = (curLampByte * nibbleOffset);
 
         // The data will be in the upper nibble, but we need the bank count in the lower
         lampOutput &= 0xF0;
@@ -3717,6 +3812,12 @@ ISR(TIMER1_COMPA_vect) {    //This is the interrupt request (running at 965.3 Hz
     byte curLampByte = LampStates[LampStrobe];
     if (LampPass % DimDivisor1) curLampByte |= LampDim1[LampStrobe];
     if (LampPass % DimDivisor2) curLampByte |= LampDim2[LampStrobe];
+
+#if defined(RPU_OS_USE_LAMP_OVERLAYS)
+    if (UseLampsOffOverlay) curLampByte |= LampsOffOverlay[LampStrobe];
+    if (UseLampsOnOverlay) curLampByte &= LampsOnOverlay[LampStrobe];
+#endif
+    
     RPU_DataWrite(PIA_LAMPS_PORT_B, 0x01 << (LampStrobe));
     RPU_DataWrite(PIA_LAMPS_PORT_A, curLampByte);
 
@@ -4335,17 +4436,24 @@ void RPU_LISYSendSoundCommand(byte soundNum) {
 volatile byte CurrentLampByte = 0;
 // Rev 200 ISR for passing commands to LISY
 ISR(TIMER1_COMPA_vect) {    //This is the interrupt request (running at 965.3 Hz)
-  byte changedLamps = OldLampStates[CurrentLampByte] ^ LampStates[CurrentLampByte];
+
+  byte curLampState = LampStates[CurrentLampByte];
+#if defined(RPU_OS_USE_LAMP_OVERLAYS)
+  if (UseLampsOffOverlay) curLampState |= LampsOffOverlay[CurrentLampByte];
+  if (UseLampsOnOverlay) curLampState &= LampsOnOverlay[CurrentLampByte];
+#endif
+
+  byte changedLamps = OldLampStates[CurrentLampByte] ^ curLampState;
   if (changedLamps) {
     byte curLampBit = 0x01;
     for (byte curBit = 0; curBit < 8; curBit++) {
       if (changedLamps & curLampBit) {
         byte lampNum = curBit + CurrentLampByte*8;
-        RPU_LISYSetSimpleLampState(lampNum, (LampStates[CurrentLampByte]&curLampBit) ? false : true);
+        RPU_LISYSetSimpleLampState(lampNum, (curLampState&curLampBit) ? false : true);
       }
       curLampBit *= 2;
     }
-    OldLampStates[CurrentLampByte] = LampStates[CurrentLampByte];
+    OldLampStates[CurrentLampByte] = curLampState;
   }
   CurrentLampByte += 1;
   if (CurrentLampByte>=RPU_NUM_LAMP_BANKS) {

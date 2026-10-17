@@ -235,6 +235,62 @@ void ShowLampAnimationSingleStep(byte animationNum, byte currentStep, byte *lamp
 }
 
 
+#if defined(RPU_OS_USE_LAMP_OVERLAYS)
+
+/* 
+    ShowAnimationStepOnOverlay
+      lampsOnOverlay = true - use overlay to turn on lamps, false - use overlay to turn off lamps
+      animationNum = index of array above
+      currentStep = index of array above
+      lampsToAvoid =  pointer to array that's NUM_LAMP_ANIMATION_BYTES deep - if any bit is turned on, then that lamp won't 
+                      be added to the overlay
+
+*/
+void ShowAnimationStepOnOverlay(boolean lampsOnOverlay, byte animationNum, byte currentStep, byte *lampsToAvoid = NULL) {
+  if (animationNum>=NUM_LAMP_ANIMATIONS) return;
+  
+  byte *currentLampByte = LampAnimations[animationNum][currentStep];
+  byte *currentAvoidByte = lampsToAvoid;
+
+  for (int byteNum = 0; byteNum < NUM_LAMP_ANIMATION_BYTES; byteNum++) {
+    byte avoidedLampByte = *currentLampByte;
+    if (currentAvoidByte!=NULL) {
+      avoidedLampByte &= ~(*currentAvoidByte);
+      currentAvoidByte += 1;
+    }
+    RPU_AddLampByteToOverlay(lampsOnOverlay, byteNum, avoidedLampByte);
+    currentLampByte += 1;
+  }
+}
+
+/* 
+    RemoveAnimationStepFromOverlay
+      lampsOnOverlay = true - use overlay to remove on lamps, false - use overlay to remove off lamps
+      animationNum = index of array above
+      currentStep = index of array above
+      lampsToAvoid =  pointer to array that's NUM_LAMP_ANIMATION_BYTES deep - if any bit is turned on, then that lamp won't 
+                      be added to the overlay
+
+*/
+void RemoveAnimationStepFromOverlay(boolean lampsOnOverlay, byte animationNum, byte currentStep, byte *lampsToAvoid = NULL) {
+  if (animationNum>=NUM_LAMP_ANIMATIONS) return;
+  
+  byte *currentLampByte = LampAnimations[animationNum][currentStep];
+  byte *currentAvoidByte = lampsToAvoid;
+
+  for (int byteNum = 0; byteNum < NUM_LAMP_ANIMATION_BYTES; byteNum++) {
+    byte avoidedLampByte = *currentLampByte;
+    if (currentAvoidByte!=NULL) {
+      avoidedLampByte &= ~(*currentAvoidByte);
+      currentAvoidByte += 1;
+    }
+    RPU_RemoveLampByteFromOverlay(lampsOnOverlay, byteNum, avoidedLampByte);
+    currentLampByte += 1;
+  }
+}
+
+
+#endif
 
 #define LAMP_ANIMATIONS_H
 #endif

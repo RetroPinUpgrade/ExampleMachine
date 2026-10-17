@@ -714,10 +714,18 @@ boolean AudioHandler::QueuePrioritizedNotification(unsigned short notificationIn
     ClearNotificationStack();  
   }
 
+  // Replace current notification instead of stacking for Rev 3 hardware
+  if (RPU_OS_HARDWARE_REV <= 3 && currentNotificationPlaying != INVALID_SOUND_INDEX) {
+    wTrig.trackStop(currentNotificationPlaying);
+    currentNotificationPlaying = INVALID_SOUND_INDEX;
+  }
+
   // If there's nothing playing, we can play it now
   if (currentNotificationPlaying == INVALID_SOUND_INDEX) {
     if (currentBackgroundTrack != BACKGROUND_TRACK_NONE) {
-      wTrig.trackFade(currentBackgroundTrack, musicGain - musicDucking, 500, 0);
+      // We only want to duck if the hardware rev is greater than 3
+      // because only 4 and above konw when a track has finished playing
+      if (RPU_OS_HARDWARE_REV>3) wTrig.trackFade(currentBackgroundTrack, musicGain - musicDucking, 500, 0);
     }
     DuckCurrentSoundEffects();
     if (notificationLength) nextVoiceNotificationPlayTime = currentTime + (unsigned long)(notificationLength);
@@ -798,7 +806,9 @@ boolean AudioHandler::ServiceNotificationQueue(unsigned long currentTime) {
 
     if (nextNotification != VOICE_NOTIFICATION_STACK_EMPTY) {
       if (currentBackgroundTrack != BACKGROUND_TRACK_NONE) {
-        wTrig.trackFade(currentBackgroundTrack, musicGain - musicDucking, 500, 0);
+        // We only want to duck if the hardware rev is greater than 3
+        // because only 4 and above konw when a track has finished playing
+        if (RPU_OS_HARDWARE_REV>3) wTrig.trackFade(currentBackgroundTrack, musicGain - musicDucking, 500, 0);
       }
       DuckCurrentSoundEffects();
       if (nextDuration!=0) nextVoiceNotificationPlayTime = currentTime + (unsigned long)(nextDuration);
@@ -811,7 +821,9 @@ boolean AudioHandler::ServiceNotificationQueue(unsigned long currentTime) {
     } else {
       // No more notifications -- set the volume back up and clear the variable
       if (currentBackgroundTrack != BACKGROUND_TRACK_NONE) {
-        wTrig.trackFade(currentBackgroundTrack, musicGain, 1500, 0);
+        // We only want to un-duck if the hardware rev is greater than 3
+        // because only 4 and above konw when a track has finished playing
+        if (RPU_OS_HARDWARE_REV>3) wTrig.trackFade(currentBackgroundTrack, musicGain, 1500, 0);
       }
       nextVoiceNotificationPlayTime = 0;
       currentNotificationPlaying = INVALID_SOUND_INDEX;
@@ -899,7 +911,9 @@ boolean AudioHandler::PlaySound(unsigned short soundIndex, byte audioType, byte 
   int gain = soundFXGain;
   if (currentNotificationPlaying!=INVALID_SOUND_INDEX) {
     // reduce gain (by ducking amount) if there's a notification playing
-    gain -= soundFXDucking;
+    // We only want to duck if the hardware rev is greater than 3
+    // because only 4 and above konw when a track has finished playing
+    if (RPU_OS_HARDWARE_REV>3) gain -= soundFXDucking;
   }
   if (overrideVolume!=0xFF) gain = ConvertVolumeSettingToGain(overrideVolume);
 
