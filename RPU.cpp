@@ -1362,7 +1362,12 @@ unsigned long RPU_TestPIAs() {
   piaResult = RPU_DataRead(PIA_SOLENOID_CONTROL_A);
   if (piaResult != 0x3C) piaErrors |= RPU_RET_PIA_4_ERROR;
   piaResult = RPU_DataRead(PIA_SOLENOID_CONTROL_B);
+#if (RPU_MPU_ARCHITECTURE<15)
+  // RPU_InitializePIAs leaves CB2 (the flipper enable) low, flippers off: $34, not $3C
+  if (piaResult != 0x34) piaErrors |= RPU_RET_PIA_4_ERROR;
+#else
   if (piaResult != 0x3C) piaErrors |= RPU_RET_PIA_4_ERROR;
+#endif
 
 #if (RPU_MPU_ARCHITECTURE==13)
   piaResult = RPU_DataRead(PIA_SOUND_COMMA_CONTROL_A);
